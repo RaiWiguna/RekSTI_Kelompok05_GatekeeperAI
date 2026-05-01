@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Gatekeeper AI",
+    "slug": "gatekeeper-ai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": [
+      "android",
+      "ios"
+    ],
+    "android": {
+      "package": "com.gatekeeper.ai"
+    },
+    "ios": {
+      "bundleIdentifier": "com.gatekeeper.ai"
+    }
+  }
+}
+

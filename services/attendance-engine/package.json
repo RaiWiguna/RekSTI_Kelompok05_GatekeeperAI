@@ -1,0 +1,16 @@
+{
+  "name": "@gatekeeper/attendance-engine",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "echo dev attendance-engine",
+    "lint": "echo lint attendance-engine",
+    "test": "echo test attendance-engine",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
+

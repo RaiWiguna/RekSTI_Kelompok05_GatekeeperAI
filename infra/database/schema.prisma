@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  LECTURER
+  GATEWAY
+  SYSTEM
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LecturerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CourseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum ScheduleSource {
+  MANUAL
+  SIX
+}
+
+model User {
+  id              String        @id @default(uuid()) @db.Uuid
+  role            UserRole
+  name            String        @db.VarChar(120)
+  email           String        @unique @db.VarChar(191)
+  passwordHash    String        @map("password_hash") @db.VarChar(255)
+  status          UserStatus    @default(ACTIVE)
+  lecturerProfile Lecturer?     @relation("LecturerUser")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@index([role], map: "users_role_idx")
+  @@index([status], map: "users_status_idx")
+  @@map("users")
+}
+
+model Student {
+  id          String           @id @default(uuid()) @db.Uuid
+  nim         String           @unique @db.VarChar(32)
+  name        String           @db.VarChar(120)
+  status      StudentStatus    @default(ACTIVE)
+  enrollments Enrollment[]
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@index([name], map: "students_name_idx")
+  @@index([status], map: "students_status_idx")
+  @@map("students")
+}
+
+model Lecturer {
+  id            String           @id @default(uuid()) @db.Uuid
+  userId        String?          @unique @map("user_id") @db.Uuid
+  nidn          String           @unique @db.VarChar(32)
+  name          String           @db.VarChar(120)
+  status        LecturerStatus   @default(ACTIVE)
+  user          User?            @relation("LecturerUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  classes       Class[]
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  @@index([name], map: "lecturers_name_idx")
+  @@index([status], map: "lecturers_status_idx")
+  @@map("lecturers")
+}
+
+model Course {
+  id           String        @id @default(uuid()) @db.Uuid
+  code         String        @unique @db.VarChar(32)
+  name         String        @db.VarChar(160)
+  credits      Int
+  status       CourseStatus  @default(ACTIVE)
+  classes      Class[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@index([name], map: "courses_name_idx")
+  @@index([status], map: "courses_status_idx")
+  @@map("courses")
+}
+
+model Room {
+  id          String    @id @default(uuid()) @db.Uuid
+  code        String    @unique @db.VarChar(32)
+  name        String    @db.VarChar(120)
+  building    String    @db.VarChar(64)
+  floor       Int
+  classes     Class[]
+  devices     Device[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([building], map: "rooms_building_idx")
+  @@index([name], map: "rooms_name_idx")
+  @@map("rooms")
+}
+
+model Device {
+  id          String       @id @default(uuid()) @db.Uuid
+  roomId      String       @map("room_id") @db.Uuid
+  deviceCode  String       @unique @map("device_code") @db.VarChar(64)
+  deviceType  String       @map("device_type") @db.VarChar(64)
+  status      DeviceStatus @default(OFFLINE)
+  room        Room         @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lastSeenAt  DateTime?    @map("last_seen_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@index([roomId], map: "devices_room_id_idx")
+  @@index([status], map: "devices_status_idx")
+  @@map("devices")
+}
+
+model Class {
+  id            String       @id @default(uuid()) @db.Uuid
+  courseId      String       @map("course_id") @db.Uuid
+  lecturerId    String       @map("lecturer_id") @db.Uuid
+  roomId        String       @map("room_id") @db.Uuid
+  classCode     String       @map("class_code") @db.VarChar(32)
+  semester      String       @db.VarChar(16)
+  academicYear  String       @map("academic_year") @db.VarChar(16)
+  course        Course       @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lecturer      Lecturer     @relation(fields: [lecturerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room          Room         @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  schedules     Schedule[]
+  enrollments   Enrollment[]
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  @@unique([classCode, semester, academicYear], map: "classes_class_code_semester_academic_year_key")
+  @@index([courseId], map: "classes_course_id_idx")
+  @@index([lecturerId], map: "classes_lecturer_id_idx")
+  @@index([roomId], map: "classes_room_id_idx")
+  @@map("classes")
+}
+
+model Schedule {
+  id         String         @id @default(uuid()) @db.Uuid
+  classId    String         @map("class_id") @db.Uuid
+  dayOfWeek  DayOfWeek      @map("day_of_week")
+  startTime  DateTime       @map("start_time") @db.Time(0)
+  endTime    DateTime       @map("end_time") @db.Time(0)
+  source     ScheduleSource @default(MANUAL)
+  class      Class          @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  syncedAt   DateTime?      @map("synced_at")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  @@unique([classId, dayOfWeek, startTime, endTime], map: "schedules_class_id_day_of_week_start_time_end_time_key")
+  @@index([dayOfWeek], map: "schedules_day_of_week_idx")
+  @@index([source], map: "schedules_source_idx")
+  @@map("schedules")
+}
+
+model Enrollment {
+  id         String           @id @default(uuid()) @db.Uuid
+  studentId  String           @map("student_id") @db.Uuid
+  classId    String           @map("class_id") @db.Uuid
+  status     EnrollmentStatus @default(ACTIVE)
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  class      Class            @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  @@unique([studentId, classId], map: "enrollments_student_id_class_id_key")
+  @@index([classId], map: "enrollments_class_id_idx")
+  @@index([status], map: "enrollments_status_idx")
+  @@map("enrollments")
+}

@@ -1,16 +1,78 @@
 import "reflect-metadata";
 
+import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 
 import { AppModule } from "./app.module";
+import { ApiExceptionFilter } from "./common/filters/api-exception.filter";
+import { appEnv, loadedEnvPath } from "./config/app-env";
+
+const logger = new Logger("Bootstrap");
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix("v1");
+  const port = Number(appEnv.API_PORT);
+  const corsOrigins = [
+    "http://localhost:3000",
+    `http://127.0.0.1:${appEnv.WEB_PORT}`,
+    `http://localhost:${appEnv.WEB_PORT}`,
+  ];
 
-  const port = Number(process.env.API_PORT ?? 3001);
-  await app.listen(port);
+  try {
+    const app = await NestFactory.create(AppModule);
+    app.setGlobalPrefix("v1");
+    app.enableCors({
+      origin: corsOrigins,
+      credentials: false,
+    });
+    app.useGlobalFilters(new ApiExceptionFilter());
+    app.enableShutdownHooks();
+
+    await app.listen(port);
+
+    logger.log(`API listening on http://localhost:${port}/v1`);
+    logger.log(`CORS origins: ${corsOrigins.join(", ")}`);
+
+    if (loadedEnvPath) {
+      logger.log(`Environment loaded from ${loadedEnvPath}`);
+    } else {
+      logger.warn("No .env file was found in the expected API or repo-root locations.");
+    }
+  } catch (error) {
+    logStartupError(error, port);
+    throw error;
+  }
 }
 
-void bootstrap();
+void bootstrap().catch(() => {
+  process.exitCode = 1;
+});
 
+function logStartupError(error: unknown, port: number) {
+  if (isAddressInUseError(error)) {
+    logger.error(
+      `Port ${port} is already in use. Stop the previous API instance or change API_PORT in .env.`,
+    );
+    return;
+  }
+
+  if (isPrismaInitializationError(error)) {
+    logger.error(
+      "Prisma failed during startup. Check whether PostgreSQL is running and DATABASE_URL points to the correct host/port.",
+      error instanceof Error ? error.stack : undefined,
+    );
+    return;
+  }
+
+  logger.error(
+    "API bootstrap failed with an unexpected error.",
+    error instanceof Error ? error.stack : undefined,
+  );
+}
+
+function isAddressInUseError(error: unknown): error is NodeJS.ErrnoException {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "EADDRINUSE";
+}
+
+function isPrismaInitializationError(error: unknown) {
+  return error instanceof Error && error.name === "PrismaClientInitializationError";
+}

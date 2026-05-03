@@ -27,7 +27,7 @@ async function bootstrap() {
     app.useGlobalFilters(new ApiExceptionFilter());
     app.enableShutdownHooks();
 
-    await app.listen(port);
+    await listenWithRetry(app, port);
 
     logger.log(`API listening on http://localhost:${port}/v1`);
     logger.log(`CORS origins: ${corsOrigins.join(", ")}`);
@@ -44,8 +44,35 @@ async function bootstrap() {
 }
 
 void bootstrap().catch(() => {
-  process.exitCode = 1;
+  process.exit(1);
 });
+
+async function listenWithRetry(
+  app: Awaited<ReturnType<typeof NestFactory.create>>,
+  port: number,
+) {
+  const maxAttempts = 10;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await app.listen(port);
+      return;
+    } catch (error) {
+      if (!isAddressInUseError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      logger.warn(
+        `Port ${port} is still busy during restart. Retrying (${attempt}/${maxAttempts})...`,
+      );
+      await delay(500);
+    }
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function logStartupError(error: unknown, port: number) {
   if (isAddressInUseError(error)) {

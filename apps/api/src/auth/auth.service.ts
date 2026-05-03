@@ -164,11 +164,11 @@ function mapUserToAuthUser(user: {
 }
 
 function isInteractiveUserRole(role: UserRole) {
-  return role === UserRole.ADMIN || role === UserRole.LECTURER;
+  return role === UserRole.STUDENT || role === UserRole.ADMIN || role === UserRole.LECTURER;
 }
 
 function normalizeUserRole(role: UserRole) {
-  return role.toLowerCase() as Extract<AuthUser["role"], "admin" | "lecturer">;
+  return role.toLowerCase() as Extract<AuthUser["role"], "student" | "admin" | "lecturer">;
 }
 
 function invalidAuthException() {

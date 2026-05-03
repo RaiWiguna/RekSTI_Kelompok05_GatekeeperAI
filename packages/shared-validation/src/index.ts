@@ -6,6 +6,8 @@ export * from "./devices";
 export * from "./enrollments";
 export * from "./gateway";
 export * from "./lecturers";
+export * from "./me";
 export * from "./rooms";
 export * from "./schedules";
 export * from "./students";
+export * from "./users";

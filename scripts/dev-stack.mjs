@@ -1,11 +1,10 @@
-import { spawn } from "node:child_process";
-
 import {
   dockerCommand,
   killProcessTree,
   loadWorkspaceEnv,
   pnpmCommand,
   runCommand,
+  spawnCommand,
   waitForUrl,
   wireChildLifecycle,
   workspaceRoot,
@@ -42,19 +41,34 @@ async function main() {
   await runCommand(pnpmCommand, ["db:generate"], { cwd: workspaceRoot });
   await runCommand(pnpmCommand, ["db:migrate:deploy"], { cwd: workspaceRoot });
 
-  const apiProcess = spawn(pnpmCommand, ["--filter", "@gatekeeper/api", "dev"], {
+  const apiProcess = spawnCommand(pnpmCommand, ["--filter", "@gatekeeper/api", "dev"], {
     cwd: workspaceRoot,
-    env: process.env,
+    env: {
+      ...process.env,
+      SKIP_API_PREDEV: "1",
+    },
     stdio: "inherit",
-    shell: false,
   });
 
   const managedChildren = [apiProcess];
   wireChildLifecycle(managedChildren);
-
-  await waitForUrl(`http://localhost:${apiPort}/v1/health`, {
-    timeoutMs: 45_000,
+  const apiExitPromise = new Promise((resolvePromise, rejectPromise) => {
+    apiProcess.once("error", rejectPromise);
+    apiProcess.once("exit", (code, signal) => {
+      rejectPromise(
+        new Error(
+          `API process exited before becoming healthy (code ${code ?? "null"}${signal ? `, signal ${signal}` : ""}).`,
+        ),
+      );
+    });
   });
+
+  await Promise.race([
+    waitForUrl(`http://localhost:${apiPort}/v1/health`, {
+      timeoutMs: 45_000,
+    }),
+    apiExitPromise,
+  ]);
 
   console.log(`[dev-stack] API is ready on http://localhost:${apiPort}/v1`);
   if (envPath) {
@@ -67,11 +81,10 @@ async function main() {
     );
   }
 
-  const frontendProcess = spawn(frontendCommand[0], frontendCommand[1], {
+  const frontendProcess = spawnCommand(frontendCommand[0], frontendCommand[1], {
     cwd: workspaceRoot,
     env: frontendCommand[2],
     stdio: "inherit",
-    shell: false,
   });
 
   managedChildren.push(frontendProcess);

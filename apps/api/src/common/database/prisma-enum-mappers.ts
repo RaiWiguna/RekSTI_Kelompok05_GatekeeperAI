@@ -90,9 +90,19 @@ export function fromScheduleSource(value: ScheduleSource) {
 }
 
 export function fromUserRole(value: UserRole) {
-  return value.toLowerCase() as "admin" | "lecturer" | "gateway" | "system";
+  return value.toLowerCase() as "student" | "admin" | "lecturer" | "gateway" | "system";
+}
+
+export function toUserRole(
+  value: "student" | "admin" | "lecturer" | "gateway" | "system",
+) {
+  return value.toUpperCase() as UserRole;
 }
 
 export function fromUserStatus(value: UserStatus) {
   return value.toLowerCase() as "active" | "inactive";
+}
+
+export function toUserStatus(value: "active" | "inactive") {
+  return value === "active" ? UserStatus.ACTIVE : UserStatus.INACTIVE;
 }

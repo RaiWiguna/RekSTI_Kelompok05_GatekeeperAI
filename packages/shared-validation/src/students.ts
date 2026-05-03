@@ -1,11 +1,12 @@
 import { z } from "zod";
 
-import { activeInactiveStatusSchema, paginationQuerySchema } from "./common";
+import { activeInactiveStatusSchema, paginationQuerySchema, uuidSchema } from "./common";
 
 export const createStudentSchema = z.object({
   nim: z.string().trim().min(3).max(32),
   name: z.string().trim().min(3).max(120),
   status: activeInactiveStatusSchema.default("active"),
+  user_id: uuidSchema.optional(),
 });
 
 export const updateStudentSchema = createStudentSchema.partial();

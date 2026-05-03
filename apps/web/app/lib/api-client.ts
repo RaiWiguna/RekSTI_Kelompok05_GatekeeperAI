@@ -11,7 +11,7 @@ export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "lecturer";
+  role: "student" | "admin" | "lecturer";
 };
 
 type ApiSuccess<T> = {
@@ -42,7 +42,7 @@ type RefreshResponse = {
 };
 
 type ApiRequestOptions = {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   accessToken?: string;
   body?: Record<string, string>;
   query?: Record<string, string>;
@@ -132,7 +132,7 @@ async function executeApiRequest<T>(
   path: string,
   options: ApiRequestOptions,
 ): Promise<ApiExecutionResult<T>> {
-  const url = new URL(`${API_BASE_URL}/${path}`);
+  const url = buildRequestUrl(path);
 
   if (options.query) {
     for (const [key, value] of Object.entries(options.query)) {
@@ -271,6 +271,18 @@ function toRequestError(error: unknown, timeoutMs: number) {
 
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function buildRequestUrl(path: string) {
+  const normalizedBase = API_BASE_URL.startsWith("http://") || API_BASE_URL.startsWith("https://")
+    ? `${API_BASE_URL}/`
+    : new URL(`${stripLeadingSlash(API_BASE_URL)}/`, window.location.origin).toString();
+
+  return new URL(stripLeadingSlash(path), normalizedBase);
+}
+
+function stripLeadingSlash(value: string) {
+  return value.replace(/^\/+/, "");
 }
 
 function extractApiErrorMessage(

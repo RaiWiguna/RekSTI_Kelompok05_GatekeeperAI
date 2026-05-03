@@ -4,5 +4,5 @@ export interface AuthUser {
   userId: string;
   email: string;
   name: string;
-  role: Extract<UserRole, "admin" | "lecturer">;
+  role: Extract<UserRole, "student" | "admin" | "lecturer">;
 }

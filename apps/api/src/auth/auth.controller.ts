@@ -39,7 +39,7 @@ export class AuthController {
 
   @Get("me")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin", "lecturer")
+  @Roles("student", "admin", "lecturer")
   async me(@CurrentUser() user: AuthUser) {
     const data = await this.authService.getSessionUser(user.userId);
     return successResponse(data);

@@ -1,0 +1,335 @@
+import { ForbiddenException, Injectable } from "@nestjs/common";
+import { DayOfWeek, EnrollmentStatus } from "@prisma/client";
+import type { TodayViewQueryInput } from "@gatekeeper/shared-validation";
+
+import { getCurrentJakartaDate, combineDateAndTime } from "../common/date/calendar";
+import { getDayOfWeekFromDate } from "../common/date/day-of-week";
+import { formatTimeString } from "../common/date/time";
+import { assertFound } from "../common/database/query-helpers";
+import {
+  fromDayOfWeek,
+  fromScheduleSource,
+  toDayOfWeek,
+} from "../common/database/prisma-enum-mappers";
+import type { AuthUser } from "../common/auth/auth-user.interface";
+import { PrismaService } from "../database/prisma.service";
+
+@Injectable()
+export class MeService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getStudentTodaySchedules(user: AuthUser, query: TodayViewQueryInput) {
+    const student = await this.prisma.student.findFirst({
+      where: {
+        userId: user.userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        nim: true,
+      },
+    });
+
+    const linkedStudent = assertFound(student, "Student");
+    const date = query.date ?? getCurrentJakartaDate();
+    const dayOfWeek = toDayOfWeek(getDayOfWeekFromDate(date));
+
+    const schedules = await this.prisma.schedule.findMany({
+      where: {
+        dayOfWeek,
+        class: {
+          enrollments: {
+            some: {
+              studentId: linkedStudent.id,
+              status: EnrollmentStatus.ACTIVE,
+            },
+          },
+        },
+      },
+      orderBy: [{ startTime: "asc" }, { endTime: "asc" }],
+      include: {
+        class: {
+          select: {
+            id: true,
+            classCode: true,
+            semester: true,
+            academicYear: true,
+            course: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+            room: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+            lecturer: {
+              select: {
+                id: true,
+                nidn: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return schedules.map((schedule) => ({
+      schedule_id: schedule.id,
+      date,
+      day_of_week: fromDayOfWeek(schedule.dayOfWeek),
+      start_time: combineDateAndTime(date, schedule.startTime),
+      end_time: combineDateAndTime(date, schedule.endTime),
+      source: fromScheduleSource(schedule.source),
+      student: {
+        id: linkedStudent.id,
+        nim: linkedStudent.nim,
+        name: linkedStudent.name,
+      },
+      class_id: schedule.class.id,
+      class_code: schedule.class.classCode,
+      semester: schedule.class.semester,
+      academic_year: schedule.class.academicYear,
+      course: schedule.class.course,
+      room: schedule.class.room,
+      lecturer: schedule.class.lecturer,
+      attendance_status: "not_checked_in",
+    }));
+  }
+
+  async getLecturerTodayClasses(user: AuthUser, query: TodayViewQueryInput) {
+    const linkedLecturer = await this.getLinkedLecturer(user);
+    const date = query.date ?? getCurrentJakartaDate();
+    const dayOfWeek = toDayOfWeek(getDayOfWeekFromDate(date));
+
+    const classes = await this.listLecturerClasses(linkedLecturer.id, dayOfWeek);
+
+    return classes.map((classItem) => ({
+      ...mapLecturerClassSummary(classItem, linkedLecturer, date),
+      date,
+    }));
+  }
+
+  async getLecturerClasses(user: AuthUser) {
+    const linkedLecturer = await this.getLinkedLecturer(user);
+    const classes = await this.listLecturerClasses(linkedLecturer.id);
+
+    return classes.map((classItem) => mapLecturerClassSummary(classItem, linkedLecturer));
+  }
+
+  async getClassRosterForUser(classId: string, user: AuthUser) {
+    const classItem = await this.prisma.class.findUnique({
+      where: { id: classId },
+      include: {
+        lecturer: {
+          select: {
+            id: true,
+            userId: true,
+            name: true,
+            nidn: true,
+          },
+        },
+        course: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        room: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        enrollments: {
+          orderBy: {
+            student: {
+              name: "asc",
+            },
+          },
+          include: {
+            student: {
+              select: {
+                id: true,
+                nim: true,
+                name: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const resolvedClass = assertFound(classItem, "Class");
+    if (
+      user.role === "lecturer" &&
+      resolvedClass.lecturer.userId !== user.userId
+    ) {
+      throw new ForbiddenException({
+        code: "forbidden_role",
+        message: "You do not have permission to access this class roster",
+      });
+    }
+
+    return {
+      class_id: resolvedClass.id,
+      class_code: resolvedClass.classCode,
+      semester: resolvedClass.semester,
+      academic_year: resolvedClass.academicYear,
+      course: resolvedClass.course,
+      room: resolvedClass.room,
+      lecturer: resolvedClass.lecturer,
+      students: resolvedClass.enrollments.map((enrollment) => ({
+        enrollment_id: enrollment.id,
+        status: enrollment.status.toLowerCase(),
+        student: {
+          id: enrollment.student.id,
+          nim: enrollment.student.nim,
+          name: enrollment.student.name,
+          status: enrollment.student.status.toLowerCase(),
+        },
+      })),
+    };
+  }
+
+  private async getLinkedLecturer(user: AuthUser) {
+    const lecturer = await this.prisma.lecturer.findFirst({
+      where: {
+        userId: user.userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        nidn: true,
+      },
+    });
+
+    return assertFound(lecturer, "Lecturer");
+  }
+
+  private async listLecturerClasses(lecturerId: string, dayOfWeek?: DayOfWeek) {
+    return this.prisma.class.findMany({
+      where: {
+        lecturerId,
+        ...(dayOfWeek
+          ? {
+              schedules: {
+                some: {
+                  dayOfWeek,
+                },
+              },
+            }
+          : {}),
+      },
+      orderBy: [
+        { academicYear: "desc" },
+        { semester: "desc" },
+        { classCode: "asc" },
+      ],
+      include: {
+        course: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        room: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        schedules: {
+          ...(dayOfWeek
+            ? {
+                where: {
+                  dayOfWeek,
+                },
+              }
+            : {}),
+          orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+          select: {
+            id: true,
+            dayOfWeek: true,
+            startTime: true,
+            endTime: true,
+            source: true,
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+          },
+        },
+      },
+    });
+  }
+}
+
+function mapLecturerClassSummary(
+  classItem: {
+    id: string;
+    classCode: string;
+    semester: string;
+    academicYear: string;
+    course: {
+      id: string;
+      code: string;
+      name: string;
+    };
+    room: {
+      id: string;
+      code: string;
+      name: string;
+    };
+    schedules: Array<{
+      id: string;
+      dayOfWeek: DayOfWeek;
+      startTime: Date;
+      endTime: Date;
+      source: Parameters<typeof fromScheduleSource>[0];
+    }>;
+    _count: {
+      enrollments: number;
+    };
+  },
+  lecturer: {
+    id: string;
+    name: string;
+    nidn: string;
+  },
+  date?: string,
+) {
+  return {
+    class_id: classItem.id,
+    class_code: classItem.classCode,
+    semester: classItem.semester,
+    academic_year: classItem.academicYear,
+    lecturer,
+    course: classItem.course,
+    room: classItem.room,
+    schedules: classItem.schedules.map((schedule) => ({
+      schedule_id: schedule.id,
+      day_of_week: fromDayOfWeek(schedule.dayOfWeek),
+      start_time: date
+        ? combineDateAndTime(date, schedule.startTime)
+        : formatTimeString(schedule.startTime),
+      end_time: date
+        ? combineDateAndTime(date, schedule.endTime)
+        : formatTimeString(schedule.endTime),
+      source: fromScheduleSource(schedule.source),
+    })),
+    enrollments_count: classItem._count.enrollments,
+  };
+}

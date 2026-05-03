@@ -10,6 +10,7 @@ import {
   nodeCommand,
   pnpmCommand,
   runCommand,
+  waitForPortToBeFree,
   workspaceRoot,
   wireChildLifecycle,
 } from "./dev-utils.mjs";
@@ -19,7 +20,12 @@ const apiPort = Number.parseInt(process.env.API_PORT ?? "3001", 10);
 
 async function main() {
   await ensureApiPortIsAvailable(apiPort);
-  await runCommand(pnpmCommand, ["--dir", workspaceRoot, "db:generate"], { stdio: "inherit" });
+  if (process.env.SKIP_API_PREDEV !== "1") {
+    await runCommand(pnpmCommand, ["db:generate"], {
+      cwd: workspaceRoot,
+      stdio: "inherit",
+    });
+  }
 
   const child = spawn(
     nodeCommand,
@@ -54,6 +60,7 @@ async function ensureApiPortIsAvailable(port) {
         `[api-dev] Port ${port} is occupied by a previous Gatekeeper API process (PID ${pid}). Stopping it first...`,
       );
       await killProcessTree(pid);
+      await waitForPortToBeFree(port);
       continue;
     }
 
@@ -75,17 +82,16 @@ function isWorkspaceApiProcess(details) {
   }
 
   const commandLine = String(details.CommandLine ?? "").toLowerCase();
-  const executablePath = String(details.ExecutablePath ?? "").toLowerCase();
   const workspaceMarker = resolve(workspaceRoot).toLowerCase();
 
   return (
     (String(details.Name ?? "").toLowerCase() === "node.exe" ||
       String(details.Name ?? "").toLowerCase() === "node") &&
-    (commandLine.includes("src/main.ts") || commandLine.includes("start-api-dev.mjs")) &&
-    (commandLine.includes("apps\\api") ||
-      commandLine.includes("apps/api") ||
-      commandLine.includes(workspaceMarker) ||
-      executablePath.includes("node"))
+    commandLine.includes(workspaceMarker) &&
+    (commandLine.includes("apps\\api\\src\\main.ts") ||
+      commandLine.includes("apps/api/src/main.ts") ||
+      commandLine.includes("scripts\\start-api-dev.mjs") ||
+      commandLine.includes("scripts/start-api-dev.mjs"))
   );
 }
 

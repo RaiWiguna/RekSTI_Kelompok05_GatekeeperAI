@@ -17,6 +17,7 @@ export const dockerCommand = isWindows ? "docker.exe" : "docker";
 export const powershellCommand = isWindows
   ? "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
   : null;
+const commandShell = isWindows ? "cmd.exe" : null;
 
 const envCandidates = [
   resolve(workspaceRoot, ".env"),
@@ -34,15 +35,7 @@ export function loadWorkspaceEnv() {
 }
 
 export async function runCommand(command, args, options = {}) {
-  const child = spawn(command, args, {
-    cwd: options.cwd ?? workspaceRoot,
-    env: {
-      ...process.env,
-      ...(options.env ?? {}),
-    },
-    stdio: options.stdio ?? "inherit",
-    shell: false,
-  });
+  const child = spawnCommand(command, args, options);
 
   const [exitCode, signal] = await new Promise((resolvePromise, rejectPromise) => {
     child.once("error", rejectPromise);
@@ -57,14 +50,9 @@ export async function runCommand(command, args, options = {}) {
 }
 
 export async function runCommandCapture(command, args, options = {}) {
-  const child = spawn(command, args, {
-    cwd: options.cwd ?? workspaceRoot,
-    env: {
-      ...process.env,
-      ...(options.env ?? {}),
-    },
+  const child = spawnCommand(command, args, {
+    ...options,
     stdio: ["ignore", "pipe", "pipe"],
-    shell: false,
   });
 
   let stdout = "";
@@ -103,6 +91,27 @@ export async function killProcessTree(pid) {
   process.kill(pid, "SIGTERM");
 }
 
+export function spawnCommand(command, args, options = {}) {
+  const baseOptions = {
+    cwd: options.cwd ?? workspaceRoot,
+    env: {
+      ...process.env,
+      ...(options.env ?? {}),
+    },
+    stdio: options.stdio ?? "inherit",
+    shell: false,
+  };
+
+  if (shouldUseWindowsCommandShell(command)) {
+    return spawn(commandShell, ["/d", "/s", "/c", buildWindowsCommandLine(command, args)], {
+      ...baseOptions,
+      shell: false,
+    });
+  }
+
+  return spawn(command, args, baseOptions);
+}
+
 export async function waitForUrl(url, options = {}) {
   const timeoutMs = options.timeoutMs ?? 30_000;
   const intervalMs = options.intervalMs ?? 1_000;
@@ -122,6 +131,24 @@ export async function waitForUrl(url, options = {}) {
   }
 
   throw new Error(`Timed out waiting for ${url}.`);
+}
+
+export async function waitForPortToBeFree(port, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 10_000;
+  const intervalMs = options.intervalMs ?? 250;
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    const pids = await findListeningPids(port);
+
+    if (pids.length === 0) {
+      return;
+    }
+
+    await delay(intervalMs);
+  }
+
+  throw new Error(`Timed out waiting for port ${port} to be released.`);
 }
 
 export async function findListeningPids(port) {
@@ -200,4 +227,20 @@ export function wireChildLifecycle(children) {
       }
     }
   });
+}
+
+function shouldUseWindowsCommandShell(command) {
+  return isWindows && /\.(cmd|bat)$/i.test(command);
+}
+
+function buildWindowsCommandLine(command, args) {
+  return [command, ...args].map(quoteWindowsArgument).join(" ");
+}
+
+function quoteWindowsArgument(value) {
+  if (!/[\s"]/u.test(value)) {
+    return value;
+  }
+
+  return `"${value.replace(/"/g, '\\"')}"`;
 }

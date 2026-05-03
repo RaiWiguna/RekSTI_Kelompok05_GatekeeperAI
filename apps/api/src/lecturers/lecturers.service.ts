@@ -1,4 +1,5 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { UserRole } from "@prisma/client";
 import type {
   CreateLecturerInput,
   LecturersListQueryInput,
@@ -71,6 +72,7 @@ export class LecturersService {
 
   async create(payload: CreateLecturerInput) {
     try {
+      await assertLecturerUserLink(this.prisma, payload.user_id);
       const lecturer = await this.prisma.lecturer.create({
         data: {
           nidn: payload.nidn,
@@ -98,6 +100,7 @@ export class LecturersService {
 
   async update(id: string, payload: UpdateLecturerInput) {
     try {
+      await assertLecturerUserLink(this.prisma, payload.user_id);
       const lecturer = await this.prisma.lecturer.update({
         where: { id },
         data: {
@@ -147,6 +150,37 @@ export class LecturersService {
     } catch (error) {
       mapPrismaError(error, "Lecturer");
     }
+  }
+}
+
+async function assertLecturerUserLink(
+  prisma: PrismaService,
+  userId: string | undefined,
+) {
+  if (!userId) {
+    return;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+    },
+  });
+
+  if (!user) {
+    throw new BadRequestException({
+      code: "invalid_relation",
+      message: "Referenced user for Lecturer is invalid",
+    });
+  }
+
+  if (user.role !== UserRole.LECTURER) {
+    throw new BadRequestException({
+      code: "invalid_relation",
+      message: "Lecturer profile can only be linked to a lecturer account",
+    });
   }
 }
 

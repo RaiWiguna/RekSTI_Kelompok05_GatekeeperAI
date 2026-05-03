@@ -18,7 +18,7 @@ type LoginResponse = {
   user: {
     id: string;
     name: string;
-    role: "admin" | "lecturer";
+    role: "student" | "admin" | "lecturer";
   };
 };
 
@@ -83,7 +83,7 @@ export default function App() {
           <Text style={styles.eyebrow}>Gatekeeper AI</Text>
           <Text style={styles.title}>Lecturer Mobile</Text>
           <Text style={styles.subtitle}>
-            Sprint 1 mobile login tester for lecturer and admin accounts.
+            Sprint 1 mobile login tester for student, lecturer, and admin accounts.
           </Text>
         </View>
 

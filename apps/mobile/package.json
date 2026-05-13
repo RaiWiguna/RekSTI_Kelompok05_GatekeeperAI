@@ -2,6 +2,7 @@
   "name": "@gatekeeper/mobile",
   "version": "0.1.0",
   "private": true,
+  "main": "App.tsx",
   "scripts": {
     "build": "echo build mobile",
     "dev": "expo start",
@@ -10,14 +11,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "expo": "^52.0.0",
-    "expo-status-bar": "^2.0.0",
-    "react": "^19.0.0",
-    "react-native": "^0.76.0"
+    "@react-native-async-storage/async-storage": "^2.2.0",
+    "expo": "^54.0.34",
+    "expo-status-bar": "^3.0.9",
+    "react": "^19.1.0",
+    "react-native": "^0.81.5"
   },
   "devDependencies": {
-    "@types/react": "^19.0.2",
+    "@types/react": "^19.1.17",
     "typescript": "^5.6.3"
   }
 }
-

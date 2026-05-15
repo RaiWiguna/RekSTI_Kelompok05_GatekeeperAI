@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from "@nestjs/common";
 import { UserRole, UserStatus } from "@prisma/client";
 import { JwtService } from "@nestjs/jwt";
 import * as argon2 from "argon2";
-import type { LoginInput, RefreshTokenInput } from "@gatekeeper/shared-validation";
+import type { LoginInput, RegisterInput, RefreshTokenInput } from "@gatekeeper/shared-validation";
 
 import { appEnv } from "../config/app-env";
 import { PrismaService } from "../database/prisma.service";
@@ -38,6 +38,51 @@ export class AuthService {
     if (!isPasswordValid) {
       throw invalidAuthException();
     }
+
+    const authUser = mapUserToAuthUser(user);
+    const tokens = await this.issueTokens(authUser);
+
+    return {
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      user: {
+        id: authUser.userId,
+        name: authUser.name,
+        role: authUser.role,
+      },
+    };
+  }
+
+  async register(input: RegisterInput) {
+    // Check if user already exists
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: input.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException("Email already registered");
+    }
+
+    // Hash password
+    const passwordHash = await argon2.hash(input.password);
+
+    // Create new user with STUDENT role
+    const user = await this.prisma.user.create({
+      data: {
+        email: input.email,
+        name: input.name,
+        passwordHash,
+        role: UserRole.STUDENT,
+        status: UserStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+      },
+    });
 
     const authUser = mapUserToAuthUser(user);
     const tokens = await this.issueTokens(authUser);

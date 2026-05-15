@@ -43,7 +43,7 @@ export function OnboardingScreen({ onLogin }: OnboardingScreenProps) {
       {/* Tombol di bagian bawah layar */}
       <View style={styles.footer}>
         <Pressable style={styles.button} onPress={onLogin}>
-          <Text style={styles.buttonText}>Login with SSO</Text>
+          <Text style={styles.buttonText}>Get Started</Text>
         </Pressable>
       </View>
     </SafeAreaView>

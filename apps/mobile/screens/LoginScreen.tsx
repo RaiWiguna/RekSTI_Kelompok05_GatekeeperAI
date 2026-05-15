@@ -1,298 +1,305 @@
-import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
+  TextInput,
+  Pressable,
+  Image,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
 } from "react-native";
-import { fetchJson, normalizeApiBase } from "../api-client";
-
-type LoginResponse = {
-  access_token: string;
-  refresh_token: string;
-  user: {
-    id: string;
-    name: string;
-    role: "student" | "admin" | "lecturer";
-  };
-};
+import { StatusBar } from "expo-status-bar";
 
 export type Session = {
   accessToken: string;
   refreshToken: string;
-  user: LoginResponse["user"];
+  user: {
+    id: string;
+    name: string;
+    role: string;
+  };
 };
 
 type LoginScreenProps = {
-  apiBaseUrl: string;
-  onApiBaseUrlChange: (url: string) => void;
   onLoginSuccess: (session: Session) => void;
+  onNavigateToRegister: () => void;
 };
 
 export function LoginScreen({
-  apiBaseUrl,
-  onApiBaseUrlChange,
   onLoginSuccess,
+  onNavigateToRegister,
 }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<"mahasiswa" | "dosen" | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  async function handleLogin() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await fetchJson<LoginResponse>(
-        `${normalizeApiBase(apiBaseUrl)}/auth/login`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            email: email.trim(),
-            password,
-          }),
-        }
-      );
-
-      onLoginSuccess({
-        accessToken: result.access_token,
-        refreshToken: result.refresh_token,
-        user: result.user,
-      });
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error ? requestError.message : "Login failed."
-      );
-    } finally {
-      setLoading(false);
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert("Please fill in all fields");
+      return;
     }
-  }
+
+    if (!selectedRole) {
+      alert("Please select your role");
+      return;
+    }
+
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Mock login - any email/password works for UI testing
+    const mockSession: Session = {
+      accessToken: "mock_access_token_" + Math.random().toString(36).substr(2, 9),
+      refreshToken: "mock_refresh_token_" + Math.random().toString(36).substr(2, 9),
+      user: {
+        id: "user_" + Math.random().toString(36).substr(2, 9),
+        name: email.split("@")[0] || "User",
+        role: selectedRole,
+      },
+    };
+    
+    onLoginSuccess(mockSession);
+  };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.hero}>
-          <Text style={styles.icon}>🔐</Text>
-          <Text style={styles.title}>Gatekeeper AI</Text>
-          <Text style={styles.subtitle}>
-            Platform Manajemen Akses Cerdas
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.flex}
+      >
+        <ScrollView contentContainerStyle={styles.content}>
+        {/* Logo Section */}
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("../assets/students.png")} // Pastikan path benar
+            style={styles.logo}
+          />
+          <Text style={styles.brandText}>
+            Gatekeeper<Text style={styles.brandHighlight}>-AI</Text>
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Masuk</Text>
+        <Text style={styles.welcomeText}>Welcome Back</Text>
 
-          <Field
-            label="API Base URL"
-            value={apiBaseUrl}
-            onChangeText={onApiBaseUrlChange}
-            autoCapitalize="none"
-            helper="Android emulator: http://10.0.2.2:3001/v1"
-          />
-          <Field
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            placeholder="email@example.com"
-          />
-          <Field
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            placeholder="••••••••"
-          />
+        {/* Form Section */}
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Write here..."
+              placeholderTextColor="#A9A9A9"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              editable={!isLoading}
+            />
+          </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Write here..."
+              placeholderTextColor="#A9A9A9"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              editable={!isLoading}
+            />
+          </View>
 
-          <Pressable
-            style={[styles.button, loading && styles.buttonDisabled]}
-            disabled={loading}
-            onPress={() => void handleLogin()}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Pilih Role</Text>
+            <View style={styles.roleButtonsContainer}>
+              <Pressable
+                style={[
+                  styles.roleButton,
+                  selectedRole === "mahasiswa" && styles.roleButtonActive,
+                ]}
+                onPress={() => setSelectedRole("mahasiswa")}
+                disabled={isLoading}
+              >
+                <Text
+                  style={[
+                    styles.roleButtonText,
+                    selectedRole === "mahasiswa" && styles.roleButtonTextActive,
+                  ]}
+                >
+                  👨‍🎓 Mahasiswa
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.roleButton,
+                  selectedRole === "dosen" && styles.roleButtonActive,
+                ]}
+                onPress={() => setSelectedRole("dosen")}
+                disabled={isLoading}
+              >
+                <Text
+                  style={[
+                    styles.roleButtonText,
+                    selectedRole === "dosen" && styles.roleButtonTextActive,
+                  ]}
+                >
+                  👨‍🏫 Dosen
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable 
+            style={[styles.button, isLoading && styles.buttonDisabled]} 
+            onPress={handleLogin}
+            disabled={isLoading}
           >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
+            {isLoading ? (
+              <ActivityIndicator color="#FFF" />
             ) : (
-              <Text style={styles.buttonText}>Masuk</Text>
+              <Text style={styles.buttonText}>Log In</Text>
             )}
           </Pressable>
-        </View>
-      </ScrollView>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>Don't have an account? </Text>
+              <Pressable onPress={onNavigateToRegister} disabled={isLoading}>
+                <Text style={styles.linkText}>Register</Text>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-type FieldProps = {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
-  keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
-  secureTextEntry?: boolean;
-  helper?: string;
-  placeholder?: string;
-};
-
-function Field({
-  label,
-  value,
-  onChangeText,
-  autoCapitalize = "none",
-  keyboardType = "default",
-  secureTextEntry = false,
-  helper,
-  placeholder,
-}: FieldProps) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        autoCapitalize={autoCapitalize}
-        keyboardType={keyboardType}
-        secureTextEntry={secureTextEntry}
-        placeholder={placeholder}
-        placeholderTextColor="#999"
-        style={styles.input}
-      />
-      {helper ? <Text style={styles.helper}>{helper}</Text> : null}
-    </View>
-  );
-}
-
-type InfoProps = {
-  label: string;
-  value: string;
-};
-
-export function Info({ label, value }: InfoProps) {
-  return (
-    <View style={styles.info}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#f5f5f5",
-  },
   container: {
-    flexGrow: 1,
-    padding: 16,
+    flex: 1,
+    backgroundColor: "#FFFFFF",
   },
-  hero: {
+  flex: {
+    flex: 1,
+  },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: 30,
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  logoContainer: {
     alignItems: "center",
     marginBottom: 40,
-    marginTop: 20,
   },
-  icon: {
-    fontSize: 60,
-    marginBottom: 16,
+  logo: {
+    width: 100,
+    height: 100,
+    resizeMode: "contain",
   },
-  title: {
-    fontSize: 32,
+  brandText: {
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#1a1a1a",
-    marginBottom: 8,
+    color: "#112D4E",
+    marginTop: 10,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#666",
+  brandHighlight: {
+    color: "#00A8E8",
+  },
+  welcomeText: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#000",
     textAlign: "center",
+    marginBottom: 30,
   },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  form: {
+    width: "100%",
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
+  inputGroup: {
     marginBottom: 20,
-    color: "#1a1a1a",
-  },
-  field: {
-    marginBottom: 16,
   },
   label: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#666",
-    marginBottom: 6,
-    textTransform: "uppercase",
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#112D4E",
+    marginBottom: 8,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    backgroundColor: "#D9D9D9",
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
     fontSize: 14,
-    color: "#1a1a1a",
+    color: "#333",
   },
-  helper: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
+  roleButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  roleButton: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: "#D9D9D9",
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: "#F9F9F9",
+  },
+  roleButtonActive: {
+    borderColor: "#112D4E",
+    backgroundColor: "#E8F0F8",
+  },
+  roleButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666",
+  },
+  roleButtonTextActive: {
+    color: "#112D4E",
   },
   button: {
-    backgroundColor: "#6366F1",
+    backgroundColor: "#112D4E",
     borderRadius: 8,
-    paddingVertical: 14,
+    paddingVertical: 15,
     alignItems: "center",
-    justifyContent: "center",
     marginTop: 20,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
   },
-  error: {
-    color: "#EF4444",
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 20,
+  },
+  footerText: {
+    color: "#A9A9A9",
     fontSize: 14,
-    marginBottom: 12,
-    backgroundColor: "#FEE2E2",
-    padding: 10,
-    borderRadius: 6,
   },
-  info: {
-    marginBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    paddingBottom: 12,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: "#999",
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  infoValue: {
+  linkText: {
+    color: "#112D4E",
     fontSize: 14,
-    color: "#1a1a1a",
-    marginTop: 4,
-    fontWeight: "500",
+    fontWeight: "bold",
+    textDecorationLine: "underline",
   },
 });

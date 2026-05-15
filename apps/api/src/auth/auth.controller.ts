@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import {
   loginSchema,
+  registerSchema,
   refreshTokenSchema,
   type LoginInput,
+  type RegisterInput,
   type RefreshTokenInput,
 } from "@gatekeeper/shared-validation";
 
@@ -25,6 +27,15 @@ export class AuthController {
     payload: LoginInput,
   ) {
     const data = await this.authService.login(payload);
+    return successResponse(data);
+  }
+
+  @Post("register")
+  async register(
+    @Body(new ZodValidationPipe(registerSchema))
+    payload: RegisterInput,
+  ) {
+    const data = await this.authService.register(payload);
     return successResponse(data);
   }
 

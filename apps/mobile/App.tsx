@@ -4,43 +4,34 @@ import { useEffect, useState } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { OnboardingScreen } from "./screens/OnboardingScreen";
 import { LoginScreen, Session } from "./screens/LoginScreen";
-import { HomeScreen } from "./screens/HomeScreen";
+import { RegisterScreen } from "./screens/RegisterScreen";
+import { HomeScreen as HomeScreenMahasiswa } from "./screens/HomeScreenMahasiswa";
+import { HomeScreenDosen } from "./screens/HomeScreenDosen";
+import { SplashScreen } from "./screens/SplashScreen";
 import {
   hasCompletedOnboarding,
   markOnboardingAsCompleted,
+  resetOnboarding,
 } from "./utils/onboarding";
-import { SplashScreen } from "./screens/SplashScreen";
 
-const mobileRuntime = globalThis as typeof globalThis & {
-  process?: {
-    env?: Record<string, string | undefined>;
-  };
-};
-
-type AppState = "loading" | "onboarding" | "login" | "home";
+type AppState = "loading" | "onboarding" | "register" | "login" | "home";
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>("loading");
-  const [apiBaseUrl, setApiBaseUrl] = useState(
-    mobileRuntime.process?.env?.EXPO_PUBLIC_API_BASE_URL ??
-      "http://10.0.2.2:3001/v1"
-  );
   const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
     async function checkOnboardingStatus() {
       try {
+        // For development/testing: uncomment line below to reset onboarding
+        await resetOnboarding();
+        
         const completed = await hasCompletedOnboarding();
         await new Promise<void>(resolve => setTimeout(resolve, 2000));
-        
-        // HAPUS ATAU COMMENT BARIS INI:
-        // setAppState(completed ? "login" : "onboarding");
-        
-        setAppState("onboarding"); 
-
+        setAppState(completed ? "login" : "onboarding");
       } catch (error) {
         console.error("Gagal memuat status onboarding:", error);
-        setAppState("onboarding"); 
+        setAppState("onboarding");
       }
     }
 
@@ -49,6 +40,15 @@ export default function App() {
 
   async function handleOnboardingComplete() {
     await markOnboardingAsCompleted();
+    setAppState("register");
+  }
+
+  function handleRegisterSuccess(newSession: Session) {
+    setSession(newSession);
+    setAppState("home");
+  }
+
+  function handleNavigateToLogin() {
     setAppState("login");
   }
 
@@ -70,18 +70,45 @@ export default function App() {
     return <OnboardingScreen onLogin={handleOnboardingComplete} />;
   }
 
+  if (appState === "register") {
+    return (
+      <RegisterScreen
+        onRegister={async (email: string, password: string, name: string) => {
+          // Simulate network delay
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Mock registration - any credentials work for UI testing
+          const mockSession: Session = {
+            accessToken: "mock_access_token_" + Math.random().toString(36).substr(2, 9),
+            refreshToken: "mock_refresh_token_" + Math.random().toString(36).substr(2, 9),
+            user: {
+              id: "user_" + Math.random().toString(36).substr(2, 9),
+              name: name || "User",
+              role: "student",
+            },
+          };
+          handleRegisterSuccess(mockSession);
+        }}
+        onNavigateToLogin={handleNavigateToLogin}
+      />
+    );
+  }
+
   if (appState === "login") {
     return (
       <LoginScreen
-        apiBaseUrl={apiBaseUrl}
-        onApiBaseUrlChange={setApiBaseUrl}
         onLoginSuccess={handleLoginSuccess}
+        onNavigateToRegister={() => setAppState("register")}
       />
     );
   }
 
   if (appState === "home" && session) {
-    return <HomeScreen session={session} onLogout={handleLogout} />;
+    return session.user.role === "dosen" ? (
+      <HomeScreenDosen onLogout={handleLogout} />
+    ) : (
+      <HomeScreenMahasiswa onLogout={handleLogout} />
+    );
   }
 
   return null;

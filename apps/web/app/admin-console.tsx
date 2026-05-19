@@ -6,7 +6,7 @@ import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 
 import { AdminDashboard } from "./features/console/components/admin-dashboard";
 import { ConsoleSidebar } from "./features/console/components/console-sidebar";
 import { LecturerDashboard } from "./features/console/components/lecturer-dashboard";
-import { LoginView } from "./features/console/components/login-view";
+import { LoginView } from "./features/console/components/LoginScreen";
 import { buildEmptyForm, buildInitialForms, initialStore, resourceConfigs, resourceOrder } from "./features/console/config/resources";
 import type {
   LecturerClassRoster,

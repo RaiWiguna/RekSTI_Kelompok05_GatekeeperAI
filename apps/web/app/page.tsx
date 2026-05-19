@@ -1,5 +1,5 @@
-import AdminConsole from "./admin-console";
+import OnboardingPage from "./OnboardingPage";
 
-export default function HomePage() {
-  return <AdminConsole />;
+export default function Page() {
+  return <OnboardingPage />;
 }

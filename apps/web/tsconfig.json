@@ -7,6 +7,7 @@
       "dom.iterable",
       "es2022"
     ],
+    "types": [],
     "incremental": true,
     "noEmit": true,
     "plugins": [

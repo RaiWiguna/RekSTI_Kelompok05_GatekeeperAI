@@ -3,56 +3,64 @@
 import React from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
 
-const TODAY_COURSES = [
+const CLASSES = [
   {
-    id: 1,
-    code: "II3220",
-    name: "Tata Kelola Teknologi Informasi",
-    status: "Attended",
-    color: "#4ADE80",
-  },
-  {
-    id: 2,
-    code: "WI2022",
-    name: "Manajemen Proyek",
-    status: "Absent",
-    color: "#F87171",
-  },
-  {
-    id: 3,
     code: "II3230",
     name: "Keamanan Informasi",
-    status: "Not Yet",
-    color: "#FACC15",
+    lecturer: "Ir. Budi Rahardjo, M.Sc., Ph.D.",
+    attendance: "90.76%",
   },
   {
-    id: 4,
+    code: "WI2022",
+    name: "Manajemen Proyek",
+    lecturer: "Dr. Ir. Arry Akhmad Arman, M.T.",
+    attendance: "50.81%",
+  },
+  {
     code: "II3240",
     name: "Rekayasa Sistem TI",
-    status: "Not Yet",
-    color: "#FACC15",
+    lecturer: "Prof. Dr. Ing. Ir. Suhardi, M.T.",
+    attendance: "100%",
+  },
+  {
+    code: "IF3211",
+    name: "Komputasi Domain Spesifik",
+    lecturer: "Muhamad Koyimatu, S.Si., M.Si., M.Sc., Ph.D.",
+    attendance: "87.77%",
+  },
+  {
+    code: "II3220",
+    name: "Tata Kelola TI",
+    lecturer: "Prof. Ir. Kridanto Surendro, M.Sc., Ph.D.",
+    attendance: "76.34%",
+  },
+  {
+    code: "II4012",
+    name: "AI for Business",
+    lecturer: "Ir. Windy Gambetta, M.B.A.",
+    attendance: "100%",
+  },
+  {
+    code: "II4021",
+    name: "Kriptografi",
+    lecturer: "Prof. Dr. Ir. Rinaldi, M.T.",
+    attendance: "100%",
+  },
+  {
+    code: "II4024",
+    name: "Hukum Siber",
+    lecturer: "Dr. Ir. Ian Josef Matheus Edward, M.T.",
+    attendance: "100%",
   },
 ];
 
-type HomeScreenMahasiswaProps = {
+type ClassesMahasiswaProps = {
   onLogout: () => void;
   activeTab: string;
-  onTabChange: (tab: "dashboard" | "kelas" | "profil") => void;
+  onTabChange: (tab: "dashboard" | "kelas" | "profil" | "rincian-kelas") => void;
 };
 
-export function HomeScreenMahasiswa({ onLogout, activeTab, onTabChange }: HomeScreenMahasiswaProps) {
-  const getCurrentDate = () => {
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    return new Date().toLocaleDateString('id-ID', options);
-  };
-
-  const currentDate = getCurrentDate();
-
+export function ClassesMahasiswa({ onLogout, activeTab, onTabChange }: ClassesMahasiswaProps) {
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -174,163 +182,72 @@ export function HomeScreenMahasiswa({ onLogout, activeTab, onTabChange }: HomeSc
           color: #00a8e8;
         }
 
-        .dashboard-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 40px;
-        }
-
-        /* ACTIVE CLASS CARD */
-        .active-class-container {
-          background-color: #dbeafe;
-          border-radius: 30px;
-          padding: 30px;
+        /* CLASSES LIST */
+        .classes-list {
           display: flex;
           flex-direction: column;
+          gap: 20px;
         }
 
-        .timer-row {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-          margin-bottom: 20px;
-        }
-
-        .timer-box {
+        .class-card {
           background: white;
-          padding: 8px 12px;
-          border-radius: 8px;
-          text-align: center;
-          min-width: 50px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .timer-val {
-          font-size: 16px;
-          font-weight: 900;
-          display: block;
-        }
-
-        .timer-unit {
-          font-size: 10px;
-          font-weight: bold;
-          text-transform: uppercase;
+          border-radius: 12px;
+          padding: 24px 30px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+          position: relative;
         }
 
         .class-info {
-          text-align: center;
-          margin-bottom: 30px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
 
-        .class-title {
-          font-size: 22px;
-          font-weight: 900;
+        .class-name {
+          font-size: 18px;
+          font-weight: 800;
           color: #112d4e;
-          margin-bottom: 8px;
         }
 
         .class-lecturer {
           font-size: 14px;
-          color: #3b82f6;
-          font-weight: 600;
-        }
-
-        .punch-cards {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-        }
-
-        .punch-card {
-          background: white;
-          border-radius: 20px;
-          padding: 24px;
-          text-align: center;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 20px;
-        }
-
-        .punch-label {
-          font-size: 20px;
-          font-weight: 900;
-          color: #112d4e;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .punch-time {
-          font-size: 32px;
-          font-weight: bold;
-          color: #334155;
-        }
-
-        .punch-date {
-          font-size: 13px;
           color: #64748b;
+          font-weight: 500;
         }
 
-        /* TODAY'S COURSE */
-        .courses-section {
+        .class-action {
           display: flex;
           flex-direction: column;
+          align-items: flex-end;
+          gap: 12px;
         }
 
-        .section-header {
-          font-size: 24px;
-          font-weight: 800;
-          margin-bottom: 24px;
-        }
-
-        .course-item {
-          background: white;
-          border: 1px solid #112d4e;
-          border-radius: 100px;
-          padding: 18px 30px;
-          margin-bottom: 16px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          transition: transform 0.2s;
-        }
-
-        .course-item:hover {
-          transform: translateX(10px);
-        }
-
-        .course-name {
-          font-size: 15px;
-          font-weight: 500;
-          color: #1e293b;
-        }
-
-        .course-code {
-          font-weight: 800;
+        .attendance-badge {
+          background-color: #fde4c8;
           color: #112d4e;
-          margin-right: 8px;
+          padding: 4px 12px;
+          border-radius: 4px;
+          font-size: 12px;
+          font-weight: 900;
         }
 
-        .status-badge {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-weight: bold;
-          font-size: 14px;
-          min-width: 100px;
-        }
-
-        .status-dot {
-          width: 16px;
-          height: 16px;
+        .detail-button {
+          background-color: #112d4e;
+          color: white;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          cursor: pointer;
+          border: none;
         }
 
         @media (max-width: 1024px) {
-          .dashboard-grid {
-            grid-template-columns: 1fr;
-          }
           .sidebar {
             width: 80px;
           }
@@ -387,63 +304,21 @@ export function HomeScreenMahasiswa({ onLogout, activeTab, onTabChange }: HomeSc
           </div>
         </header>
 
-        <div className="dashboard-grid">
-          {/* LEFT: ACTIVE CLASS */}
-          <div className="active-class-container">
-            <div className="timer-row">
-              <div className="timer-box">
-                <span className="timer-val">09</span>
-                <span className="timer-unit">Menit</span>
+        <div className="classes-list">
+          {CLASSES.map((item, index) => (
+            <div key={index} className="class-card">
+              <div className="class-info">
+                <div className="class-name">{item.code} {item.name}</div>
+                <div className="class-lecturer">{item.lecturer}</div>
               </div>
-              <div className="timer-box">
-                <span className="timer-val">45</span>
-                <span className="timer-unit">Detik</span>
-              </div>
-            </div>
-
-            <div className="class-info">
-              <h2 className="class-title">II3230 Keamanan Informasi</h2>
-              <p className="class-lecturer">Ir. Budi Rahardjo, M.Sc., Ph.D.</p>
-            </div>
-
-            <div className="punch-cards">
-              <div className="punch-card">
-                <div className="punch-label">
-                  Arrive 
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                </div>
-                <div className="punch-time">-</div>
-                <div className="punch-date">{currentDate}</div>
-              </div>
-              <div className="punch-card">
-                <div className="punch-label">
-                  Depart
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                </div>
-                <div className="punch-time">-</div>
-                <div className="punch-date">{currentDate}</div>
+              <div className="class-action">
+                <div className="attendance-badge">{item.attendance}</div>
+                <button className="detail-button" onClick={() => onTabChange('rincian-kelas')}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
               </div>
             </div>
-          </div>
-
-          {/* RIGHT: TODAY'S COURSE */}
-          <div className="courses-section">
-            <h2 className="section-header">Today's Course</h2>
-            <div className="course-list">
-              {TODAY_COURSES.map(course => (
-                <div key={course.id} className="course-item">
-                  <div className="course-name">
-                    <span className="course-code">{course.code}</span>
-                    {course.name}
-                  </div>
-                  <div className="status-badge">
-                    <div className="status-dot" style={{ backgroundColor: course.color }}></div>
-                    {course.status}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </main>
     </div>

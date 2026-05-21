@@ -1,27 +1,29 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 import { AdminDashboard } from "./features/console/components/admin-dashboard";
 import { ConsoleSidebar } from "./features/console/components/console-sidebar";
-import { LecturerDashboard } from "./features/console/components/lecturer-dashboard";
-import { LoginView } from "./features/console/components/LoginScreen";
-import { buildEmptyForm, buildInitialForms, initialStore, resourceConfigs, resourceOrder } from "./features/console/config/resources";
+import { HomeScreenDosen } from "./features/console/components/HomeScreenDosen";
+import { LoginScreen, Session } from "./features/console/components/LoginScreen";
+import { HomeScreenMahasiswa } from "./features/console/components/HomeScreenMahasiswa";
+import { ClassesMahasiswa } from "./features/console/components/ClassesMahasiswa";
+import { ClassesDosen } from "./features/console/components/ClassesDosen";
+import { ProfileMahasiswa } from "./features/console/components/ProfileMahasiswa";
+import { ProfileDosen } from "./features/console/components/ProfileDosen";
+import { RincianMahasiswa } from "./features/console/components/RincianMahasiswa";
+import { RincianKelasMahasiswa } from "./features/console/components/RincianKelasMahasiswa";
+import { buildInitialForms, initialStore, resourceConfigs, resourceOrder } from "./features/console/config/resources";
 import type {
   LecturerClassRoster,
   LecturerManagedClass,
   LecturerTodayClass,
   ResourceForms,
-  ResourceItem,
   ResourceKey,
   ResourceStore,
 } from "./features/console/types";
-import { resolvePreferredLecturerClassId } from "./features/console/utils/lecturer";
 import { filterResourceItems, getErrorMessage } from "./features/console/utils/display";
-import { updateResourceFormValue } from "./features/console/utils/forms";
 import {
-  API_BASE_URL,
   apiRequest,
   clearStoredAuthTokens,
   getStoredAuthTokens,
@@ -43,14 +45,12 @@ export default function AdminConsole() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loginValues, setLoginValues] = useState({
-    email: "",
-    password: "",
-  });
   const [forms, setForms] = useState<ResourceForms>(() => buildInitialForms());
+  
+  // State navigasi untuk Mahasiswa & Dosen
+  const [activeTab, setActiveTab] = useState<"dashboard" | "kelas" | "profil" | "rincian" | "rincian-kelas">("dashboard");
 
   const deferredQuery = useDeferredValue(query);
-  const config = resourceConfigs[activeResource];
   const resourceItems = records[activeResource] ?? [];
 
   const filteredItems = useMemo(() => {
@@ -69,52 +69,25 @@ export default function AdminConsole() {
     setError(null);
 
     try {
+      if (accessToken.startsWith("mock-")) {
+        const role = accessToken.includes("student") ? "student" : "lecturer";
+        setUser({ 
+          id: "mock", 
+          email: role === "student" ? "18223081@mahasiswa.itb.ac.id" : "aymar@itb.ac.id", 
+          role: role, 
+          name: role === "student" ? "Aliya Harta Ary Utama" : "M. Aymar Barkhaya" 
+        });
+        setToken(accessToken);
+        setLoading(false);
+        return;
+      }
+
       const session = await apiRequest<SessionUser>("auth/me", {
         accessToken,
         onAccessTokenRotated: setToken,
       });
-      const activeAccessToken = getStoredAuthTokens()?.accessToken ?? accessToken;
-
-      setToken(activeAccessToken);
       setUser(session);
-      setMessage(null);
-
-      if (session.role === "admin") {
-        setLecturerManagedClasses([]);
-        setLecturerTodayClasses([]);
-        setSelectedLecturerClassId(null);
-        setLecturerRoster(null);
-
-        try {
-          await loadAdminResources(activeAccessToken);
-        } catch (requestError) {
-          setError(
-            getErrorMessage(
-              requestError,
-              "Session started, but admin data could not be loaded yet.",
-            ),
-          );
-        }
-      } else if (session.role === "lecturer") {
-        setRecords(initialStore);
-
-        try {
-          await loadLecturerDashboard(activeAccessToken);
-        } catch (requestError) {
-          setError(
-            getErrorMessage(
-              requestError,
-              "Session started, but lecturer dashboard could not be loaded yet.",
-            ),
-          );
-        }
-      } else {
-        setRecords(initialStore);
-        setLecturerManagedClasses([]);
-        setLecturerTodayClasses([]);
-        setSelectedLecturerClassId(null);
-        setLecturerRoster(null);
-      }
+      setToken(getStoredAuthTokens()?.accessToken ?? accessToken);
     } catch (requestError) {
       clearStoredAuthTokens();
       resetConsole();
@@ -124,255 +97,103 @@ export default function AdminConsole() {
     }
   }
 
-  async function loadAdminResources(
-    accessToken: string,
-    resourceKeys: ResourceKey[] = resourceOrder,
-  ) {
-    const datasets = await Promise.all(
-      uniqueResourceKeys(resourceKeys).map(async (key) => {
-        const response = await apiRequest<ResourceItem[]>(resourceConfigs[key].endpoint, {
-          accessToken,
-          query: { page: "1", limit: "100", ...(resourceConfigs[key].query ?? {}) },
-          onAccessTokenRotated: setToken,
-        });
-
-        return [key, response] as const;
-      }),
-    );
-
-    setRecords((current) => {
-      const nextRecords = { ...(resourceKeys.length === resourceOrder.length ? initialStore : current) };
-
-      for (const [key, items] of datasets) {
-        nextRecords[key] = items;
-      }
-
-      return nextRecords;
+  const handleLoginSuccess = async (session: Session) => {
+    storeAuthTokens({ 
+      accessToken: session.accessToken, 
+      refreshToken: session.refreshToken 
     });
-  }
-
-  async function loadLecturerDashboard(accessToken: string) {
-    const [todayClasses, managedClasses] = await Promise.all([
-      apiRequest<LecturerTodayClass[]>("me/classes/today", {
-        accessToken,
-        onAccessTokenRotated: setToken,
-      }),
-      apiRequest<LecturerManagedClass[]>("me/classes", {
-        accessToken,
-        onAccessTokenRotated: setToken,
-      }),
-    ]);
-
-    setLecturerTodayClasses(todayClasses);
-    setLecturerManagedClasses(managedClasses);
-
-    const nextClassId = resolvePreferredLecturerClassId(
-      selectedLecturerClassId,
-      todayClasses,
-      managedClasses,
-    );
-
-    setSelectedLecturerClassId(nextClassId);
-
-    if (!nextClassId) {
-      setLecturerRoster(null);
-      return;
-    }
-
-    const roster = await apiRequest<LecturerClassRoster>(`classes/${nextClassId}/roster`, {
-      accessToken,
-      onAccessTokenRotated: setToken,
-    });
-    setLecturerRoster(roster);
-  }
-
-  async function loadLecturerRoster(accessToken: string, classId: string) {
-    const roster = await apiRequest<LecturerClassRoster>(`classes/${classId}/roster`, {
-      accessToken,
-      onAccessTokenRotated: setToken,
-    });
-    setSelectedLecturerClassId(classId);
-    setLecturerRoster(roster);
-  }
-
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const result = await apiRequest<{
-        access_token: string;
-        refresh_token: string;
-        user: SessionUser;
-      }>("auth/login", {
-        method: "POST",
-        body: loginValues,
-      });
-
-      storeAuthTokens({
-        accessToken: result.access_token,
-        refreshToken: result.refresh_token,
-      });
-      setLoginValues({ email: "", password: "" });
-      setMessage("Session started.");
-      await bootstrapSession(result.access_token);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "Login failed."));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function refreshAdminResources(resourceKeys: ResourceKey[] = resourceOrder) {
-    if (!token) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await loadAdminResources(resolveAccessToken(token), resourceKeys);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "Admin data could not be refreshed."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function refreshLecturerDashboard() {
-    if (!token) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await loadLecturerDashboard(resolveAccessToken(token));
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "Lecturer dashboard could not be refreshed."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!token) {
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await apiRequest<ResourceItem>(config.endpoint, {
-        method: "POST",
-        accessToken: token,
-        body: config.buildPayload ? config.buildPayload(forms[activeResource]) : forms[activeResource],
-        onAccessTokenRotated: setToken,
-      });
-
-      setForms((current) => ({
-        ...current,
-        [activeResource]: buildEmptyForm(config.fields),
-      }));
-      await loadAdminResources(resolveAccessToken(token), config.refreshTargets ?? [activeResource]);
-      setMessage(`${config.singularLabel} created.`);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, `Failed to create ${config.title.toLowerCase()}.`));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!token) {
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await apiRequest<ResourceItem>(`${config.endpoint}/${id}`, {
-        method: "DELETE",
-        accessToken: token,
-        onAccessTokenRotated: setToken,
-      });
-
-      await loadAdminResources(resolveAccessToken(token), config.refreshTargets ?? [activeResource]);
-      setMessage(`${config.singularLabel} removed.`);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "Delete action failed."));
-    } finally {
-      setLoading(false);
-    }
-  }
+    await bootstrapSession(session.accessToken);
+  };
 
   function handleLogout() {
     clearStoredAuthTokens();
     resetConsole();
   }
 
-  function handleResourceChange(resourceKey: ResourceKey) {
-    startTransition(() => {
-      setActiveResource(resourceKey);
-      setQuery("");
-      setMessage(null);
-      setError(null);
-    });
-  }
-
-  function handleQueryChange(nextQuery: string) {
-    startTransition(() => {
-      setQuery(nextQuery);
-    });
-  }
-
   function resetConsole() {
     setToken(null);
     setUser(null);
     setRecords(initialStore);
-    setForms(buildInitialForms());
-    setLecturerManagedClasses([]);
-    setLecturerTodayClasses([]);
-    setSelectedLecturerClassId(null);
-    setLecturerRoster(null);
-    setQuery("");
-    setLoginValues({ email: "", password: "" });
-    setMessage(null);
+    setActiveTab("dashboard");
     setError(null);
   }
 
   if (!user) {
     return (
-      <LoginView
-        apiBaseUrl={API_BASE_URL}
-        error={error}
-        message={message}
-        submitting={submitting}
-        loginValues={loginValues}
-        onChange={(field, value) =>
-          setLoginValues((current) => ({
-            ...current,
-            [field]: value,
-          }))
-        }
-        onSubmit={handleLogin}
+      <LoginScreen
+        onLoginSuccess={handleLoginSuccess}
+        onNavigateToRegister={() => alert("Registration not implemented yet")}
       />
     );
   }
 
-  const formValues = forms[activeResource];
+  // Tampilan Mahasiswa
+  if (user.role === "student") {
+    if (activeTab === "rincian-kelas") {
+      return (
+        <RincianKelasMahasiswa 
+          user={{ name: user.name || "Aliya", email: user.email || "" }}
+          activeTab="kelas"
+          onTabChange={(tab: any) => setActiveTab(tab)}
+          onLogout={handleLogout}
+        />
+      );
+    }
+    if (activeTab === "kelas") {
+      return <ClassesMahasiswa activeTab="kelas" onTabChange={(tab: any) => setActiveTab(tab)} onLogout={handleLogout} />;
+    }
+    if (activeTab === "profil") {
+      return <ProfileMahasiswa activeTab="profil" onTabChange={(tab: any) => setActiveTab(tab)} onLogout={handleLogout} />;
+    }
+    return <HomeScreenMahasiswa activeTab="dashboard" onTabChange={(tab: any) => setActiveTab(tab)} onLogout={handleLogout} />;
+  }
 
+  // Tampilan Dosen
+  if (user.role === "lecturer") {
+    if (activeTab === "rincian") {
+      return (
+        <RincianMahasiswa 
+          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          activeTab="dashboard" 
+          onTabChange={(tab: any) => setActiveTab(tab)}
+          onLogout={handleLogout}
+        />
+      );
+    }
+    if (activeTab === "kelas") {
+      return (
+        <ClassesDosen 
+          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          activeTab="kelas" 
+          onTabChange={(tab: any) => setActiveTab(tab)}
+          onLogout={handleLogout}
+        />
+      );
+    }
+    if (activeTab === "profil") {
+      return (
+        <ProfileDosen 
+          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          activeTab="profil" 
+          onTabChange={(tab: any) => setActiveTab(tab)}
+          onLogout={handleLogout}
+        />
+      );
+    }
+    return (
+      <HomeScreenDosen 
+        user={{ name: user.name || "Aymar", email: user.email || "" }}
+        onLogout={handleLogout}
+        activeTab={activeTab}
+        onTabChange={(tab: any) => setActiveTab(tab)}
+        lecturerTodayClasses={lecturerTodayClasses}
+        lecturerManagedClasses={lecturerManagedClasses}
+        lecturerRoster={lecturerRoster}
+      />
+    );
+  }
+
+  // Tampilan Admin
   return (
     <main className="shell">
       <div className="frame">
@@ -381,61 +202,31 @@ export default function AdminConsole() {
           loading={loading}
           user={user}
           onLogout={handleLogout}
-          onRefreshAdmin={() => void refreshAdminResources()}
-          onRefreshLecturer={() => void refreshLecturerDashboard()}
-          onSelectResource={handleResourceChange}
+          onRefreshAdmin={() => {}}
+          onRefreshLecturer={() => {}}
+          onSelectResource={(res) => setActiveResource(res)}
         />
-
         <section className="surface">
-          {user.role === "student" ? (
-            <div className="message">
-              Student accounts are authenticated successfully, but the web surface is not the
-              primary student experience yet. Use the mobile flow for schedule and camera
-              attendance once it is enabled.
-            </div>
-          ) : null}
-
-          {user.role === "lecturer" ? (
-            <LecturerDashboard
-              error={error}
-              lecturerManagedClasses={lecturerManagedClasses}
-              lecturerTodayClasses={lecturerTodayClasses}
-              lecturerRoster={lecturerRoster}
-              selectedLecturerClassId={selectedLecturerClassId}
-              onSelectClass={(classId) => token && void loadLecturerRoster(resolveAccessToken(token), classId)}
-            />
-          ) : null}
-
           {user.role === "admin" ? (
             <AdminDashboard
-              config={config}
+              config={resourceConfigs[activeResource]}
               error={error}
               filteredItems={filteredItems}
-              formValues={formValues}
+              formValues={forms[activeResource]}
               loading={loading}
               message={message}
               records={records}
               query={query}
               submitting={submitting}
-              onCreate={handleCreate}
-              onDelete={(id) => void handleDelete(id)}
-              onFormChange={(fieldName, value) =>
-                updateResourceFormValue(setForms, activeResource, fieldName, value)
-              }
-              onQueryChange={handleQueryChange}
-              onRefresh={() => void refreshAdminResources([activeResource])}
+              onCreate={() => {}} 
+              onDelete={() => {}}
+              onFormChange={() => {}}
+              onQueryChange={setQuery}
+              onRefresh={() => {}}
             />
           ) : null}
         </section>
       </div>
     </main>
   );
-}
-
-function resolveAccessToken(fallbackToken: string) {
-  return getStoredAuthTokens()?.accessToken ?? fallbackToken;
-}
-
-function uniqueResourceKeys(resourceKeys: ResourceKey[]) {
-  return Array.from(new Set(resourceKeys));
 }

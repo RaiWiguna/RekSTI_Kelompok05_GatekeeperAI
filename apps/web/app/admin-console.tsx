@@ -13,6 +13,8 @@ import { ProfileMahasiswa } from "./features/console/components/ProfileMahasiswa
 import { ProfileDosen } from "./features/console/components/ProfileDosen";
 import { RincianMahasiswa } from "./features/console/components/RincianMahasiswa";
 import { RincianKelasMahasiswa } from "./features/console/components/RincianKelasMahasiswa";
+import { RincianKelasDosen } from "./features/console/components/RincianKelasDosen";
+import { NotificationPage } from "./features/console/components/NotificationPage";
 import { buildInitialForms, initialStore, resourceConfigs, resourceOrder } from "./features/console/config/resources";
 import type {
   LecturerClassRoster,
@@ -48,7 +50,8 @@ export default function AdminConsole() {
   const [forms, setForms] = useState<ResourceForms>(() => buildInitialForms());
   
   // State navigasi untuk Mahasiswa & Dosen
-  const [activeTab, setActiveTab] = useState<"dashboard" | "kelas" | "profil" | "rincian" | "rincian-kelas">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "kelas" | "profil" | "rincian" | "rincian-kelas" | "rincian-kelas-dosen" | "notifikasi">("dashboard");
+  const [previousTab, setPreviousTab] = useState<any>("dashboard");
 
   const deferredQuery = useDeferredValue(query);
   const resourceItems = records[activeResource] ?? [];
@@ -118,6 +121,11 @@ export default function AdminConsole() {
     setError(null);
   }
 
+  const navigateToNotifications = () => {
+    setPreviousTab(activeTab);
+    setActiveTab("notifikasi");
+  };
+
   if (!user) {
     return (
       <LoginScreen
@@ -125,6 +133,10 @@ export default function AdminConsole() {
         onNavigateToRegister={() => alert("Registration not implemented yet")}
       />
     );
+  }
+
+  if (activeTab === "notifikasi") {
+    return <NotificationPage onBack={() => setActiveTab(previousTab)} />;
   }
 
   // Tampilan Mahasiswa
@@ -136,16 +148,38 @@ export default function AdminConsole() {
           activeTab="kelas"
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
+          onNavigateToNotifications={navigateToNotifications}
         />
       );
     }
     if (activeTab === "kelas") {
-      return <ClassesMahasiswa activeTab="kelas" onTabChange={(tab: any) => setActiveTab(tab)} onLogout={handleLogout} />;
+      return (
+        <ClassesMahasiswa 
+          activeTab="kelas" 
+          onTabChange={(tab: any) => setActiveTab(tab)} 
+          onLogout={handleLogout} 
+          onNavigateToNotifications={navigateToNotifications}
+        />
+      );
     }
     if (activeTab === "profil") {
-      return <ProfileMahasiswa activeTab="profil" onTabChange={(tab: any) => setActiveTab(tab)} onLogout={handleLogout} />;
+      return (
+        <ProfileMahasiswa 
+          activeTab="profil" 
+          onTabChange={(tab: any) => setActiveTab(tab)} 
+          onLogout={handleLogout} 
+          onNavigateToNotifications={navigateToNotifications}
+        />
+      );
     }
-    return <HomeScreenMahasiswa activeTab="dashboard" onTabChange={(tab: any) => setActiveTab(tab)} onLogout={handleLogout} />;
+    return (
+      <HomeScreenMahasiswa 
+        activeTab="dashboard" 
+        onTabChange={(tab: any) => setActiveTab(tab)} 
+        onLogout={handleLogout} 
+        onNavigateToNotifications={navigateToNotifications} 
+      />
+    );
   }
 
   // Tampilan Dosen
@@ -157,6 +191,18 @@ export default function AdminConsole() {
           activeTab="dashboard" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
+          onNavigateToNotifications={navigateToNotifications}
+        />
+      );
+    }
+    if (activeTab === "rincian-kelas-dosen") {
+      return (
+        <RincianKelasDosen 
+          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          activeTab="kelas" 
+          onTabChange={(tab: any) => setActiveTab(tab)}
+          onLogout={handleLogout}
+          onNavigateToNotifications={navigateToNotifications}
         />
       );
     }
@@ -167,6 +213,7 @@ export default function AdminConsole() {
           activeTab="kelas" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
+          onNavigateToNotifications={navigateToNotifications}
         />
       );
     }
@@ -177,6 +224,7 @@ export default function AdminConsole() {
           activeTab="profil" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
+          onNavigateToNotifications={navigateToNotifications}
         />
       );
     }
@@ -189,6 +237,7 @@ export default function AdminConsole() {
         lecturerTodayClasses={lecturerTodayClasses}
         lecturerManagedClasses={lecturerManagedClasses}
         lecturerRoster={lecturerRoster}
+        onNavigateToNotifications={navigateToNotifications}
       />
     );
   }

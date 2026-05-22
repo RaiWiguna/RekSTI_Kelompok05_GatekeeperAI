@@ -17,9 +17,10 @@ type RincianKelasMahasiswaProps = {
   activeTab: string;
   onTabChange: (tab: "dashboard" | "kelas" | "profil" | "rincian-kelas") => void;
   user: { name: string; email: string };
+  onNavigateToNotifications: () => void;
 };
 
-export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user }: RincianKelasMahasiswaProps) {
+export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user, onNavigateToNotifications }: RincianKelasMahasiswaProps) {
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -48,6 +49,21 @@ export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user }
         .profile-section {
           padding: 0 30px;
           margin-bottom: 40px;
+          position: relative;
+        }
+
+        .notification-btn-sidebar {
+          background: transparent;
+          color: white;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          position: absolute;
+          top: 0;
+          right: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .avatar {
@@ -259,6 +275,9 @@ export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user }
       {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="profile-section">
+          <button className="notification-btn-sidebar" onClick={onNavigateToNotifications}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
           <img 
             src={`https://ui-avatars.com/api/?name=${user.name}&background=F44336&color=fff&rounded=true&bold=true`} 
             alt="Avatar" 
@@ -276,6 +295,10 @@ export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user }
           <div className={`nav-item ${activeTab === 'kelas' || activeTab === 'rincian-kelas' ? 'active' : ''}`} onClick={() => onTabChange('kelas')}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
             <span className="nav-text">Kelas</span>
+          </div>
+          <div className="nav-item" onClick={onNavigateToNotifications}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span className="nav-text">Notifikasi</span>
           </div>
           <div className={`nav-item ${activeTab === 'profil' ? 'active' : ''}`} onClick={() => onTabChange('profil')}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>

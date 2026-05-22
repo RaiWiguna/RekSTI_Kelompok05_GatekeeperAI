@@ -57,7 +57,11 @@ export default function OnboardingPage() {
           background-image: url(${bgOnboard.src});
           background-size: cover;
           background-position: center;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          font-family: 'Inter', sans-serif;
+        }
+
+        .onboarding-container :global(*) {
+          font-family: 'Inter', sans-serif;
         }
 
         .card {

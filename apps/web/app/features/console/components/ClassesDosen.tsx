@@ -17,11 +17,12 @@ const CLASSES = [
 type ClassesDosenProps = {
   onLogout: () => void;
   activeTab: string;
-  onTabChange: (tab: "dashboard" | "kelas" | "profil" | "rincian") => void;
+  onTabChange: (tab: any) => void;
   user: { name: string; email: string };
+  onNavigateToNotifications: () => void;
 };
 
-export function ClassesDosen({ onLogout, activeTab, onTabChange, user }: ClassesDosenProps) {
+export function ClassesDosen({ onLogout, activeTab, onTabChange, user, onNavigateToNotifications }: ClassesDosenProps) {
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -29,6 +30,10 @@ export function ClassesDosen({ onLogout, activeTab, onTabChange, user }: Classes
           display: flex;
           min-height: 100vh;
           background-color: #f8fafc;
+          font-family: 'Inter', sans-serif;
+        }
+
+        .dashboard-wrapper :global(*) {
           font-family: 'Inter', sans-serif;
         }
 
@@ -50,6 +55,24 @@ export function ClassesDosen({ onLogout, activeTab, onTabChange, user }: Classes
         .profile-section {
           padding: 0 30px;
           margin-bottom: 40px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          position: relative;
+        }
+
+        .notification-btn-sidebar {
+          background: transparent;
+          color: white;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          position: absolute;
+          top: 0;
+          right: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .avatar {
@@ -85,14 +108,13 @@ export function ClassesDosen({ onLogout, activeTab, onTabChange, user }: Classes
           gap: 16px;
           cursor: pointer;
           transition: background 0.2s;
-          color: #fde4c8;
+          color: #fff;
           text-decoration: none;
         }
 
         .nav-item.active {
-          background: rgba(255, 255, 255, 0.2);
-          border-left: 4px solid #fde4c8;
-          color: #fff;
+          background-color: #93c5fd;
+          color: #112d4e;
         }
 
         .nav-text {
@@ -113,7 +135,6 @@ export function ClassesDosen({ onLogout, activeTab, onTabChange, user }: Classes
           justify-content: flex-end;
           align-items: center;
           margin-bottom: 40px;
-          gap: 20px;
         }
 
         .brand-logo-section {
@@ -215,6 +236,9 @@ export function ClassesDosen({ onLogout, activeTab, onTabChange, user }: Classes
       {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="profile-section">
+          <button className="notification-btn-sidebar" onClick={onNavigateToNotifications}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
           <img 
             src={`https://ui-avatars.com/api/?name=${user.name}&background=112d4e&color=fff&rounded=true&bold=true`} 
             alt="Avatar" 
@@ -261,7 +285,7 @@ export function ClassesDosen({ onLogout, activeTab, onTabChange, user }: Classes
               </div>
               <div className="class-action">
                 <div className="attendance-badge">{item.attendance}</div>
-                <button className="detail-button" onClick={() => onTabChange('rincian')}>
+                <button className="detail-button" onClick={() => onTabChange('rincian-kelas-dosen')}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               </div>

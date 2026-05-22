@@ -1,5 +1,6 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { DayOfWeek, EnrollmentStatus } from "@prisma/client";
+import type { UpdateUserAccountInput } from "@gatekeeper/shared-validation";
 import type { TodayViewQueryInput } from "@gatekeeper/shared-validation";
 
 import { getCurrentJakartaDate, combineDateAndTime } from "../common/date/calendar";
@@ -9,6 +10,7 @@ import { assertFound } from "../common/database/query-helpers";
 import {
   fromDayOfWeek,
   fromScheduleSource,
+  fromUserRole,
   toDayOfWeek,
 } from "../common/database/prisma-enum-mappers";
 import type { AuthUser } from "../common/auth/auth-user.interface";
@@ -25,7 +27,7 @@ export class MeService {
       },
       select: {
         id: true,
-        name: true,
+        fullName: true,
         nim: true,
       },
     });
@@ -72,7 +74,7 @@ export class MeService {
               select: {
                 id: true,
                 nidn: true,
-                name: true,
+                fullName: true,
               },
             },
           },
@@ -90,7 +92,7 @@ export class MeService {
       student: {
         id: linkedStudent.id,
         nim: linkedStudent.nim,
-        name: linkedStudent.name,
+        full_name: linkedStudent.fullName,
       },
       class_id: schedule.class.id,
       class_code: schedule.class.classCode,
@@ -98,7 +100,11 @@ export class MeService {
       academic_year: schedule.class.academicYear,
       course: schedule.class.course,
       room: schedule.class.room,
-      lecturer: schedule.class.lecturer,
+      lecturer: {
+        id: schedule.class.lecturer.id,
+        nidn: schedule.class.lecturer.nidn,
+        full_name: schedule.class.lecturer.fullName,
+      },
       attendance_status: "not_checked_in",
     }));
   }
@@ -123,6 +129,36 @@ export class MeService {
     return classes.map((classItem) => mapLecturerClassSummary(classItem, linkedLecturer));
   }
 
+  async updateProfile(user: AuthUser, payload: UpdateUserAccountInput) {
+    const nextName = payload.account_name?.trim();
+    if (!nextName) {
+      throw new BadRequestException({
+        code: "invalid_payload",
+        message: "account_name is required",
+      });
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.userId },
+      data: {
+        accountName: nextName,
+      },
+      select: {
+        id: true,
+        email: true,
+        accountName: true,
+        role: true,
+      },
+    });
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      account_name: updatedUser.accountName,
+      role: fromUserRole(updatedUser.role) as "student" | "lecturer" | "admin",
+    };
+  }
+
   async getClassRosterForUser(classId: string, user: AuthUser) {
     const classItem = await this.prisma.class.findUnique({
       where: { id: classId },
@@ -131,7 +167,7 @@ export class MeService {
           select: {
             id: true,
             userId: true,
-            name: true,
+            fullName: true,
             nidn: true,
           },
         },
@@ -152,7 +188,7 @@ export class MeService {
         enrollments: {
           orderBy: {
             student: {
-              name: "asc",
+              fullName: "asc",
             },
           },
           include: {
@@ -160,7 +196,7 @@ export class MeService {
               select: {
                 id: true,
                 nim: true,
-                name: true,
+                fullName: true,
                 status: true,
               },
             },
@@ -187,14 +223,19 @@ export class MeService {
       academic_year: resolvedClass.academicYear,
       course: resolvedClass.course,
       room: resolvedClass.room,
-      lecturer: resolvedClass.lecturer,
+      lecturer: {
+        id: resolvedClass.lecturer.id,
+        user_id: resolvedClass.lecturer.userId,
+        nidn: resolvedClass.lecturer.nidn,
+        full_name: resolvedClass.lecturer.fullName,
+      },
       students: resolvedClass.enrollments.map((enrollment) => ({
         enrollment_id: enrollment.id,
         status: enrollment.status.toLowerCase(),
         student: {
           id: enrollment.student.id,
           nim: enrollment.student.nim,
-          name: enrollment.student.name,
+          full_name: enrollment.student.fullName,
           status: enrollment.student.status.toLowerCase(),
         },
       })),
@@ -208,7 +249,7 @@ export class MeService {
       },
       select: {
         id: true,
-        name: true,
+        fullName: true,
         nidn: true,
       },
     });
@@ -306,7 +347,7 @@ function mapLecturerClassSummary(
   },
   lecturer: {
     id: string;
-    name: string;
+    fullName: string;
     nidn: string;
   },
   date?: string,
@@ -316,7 +357,11 @@ function mapLecturerClassSummary(
     class_code: classItem.classCode,
     semester: classItem.semester,
     academic_year: classItem.academicYear,
-    lecturer,
+    lecturer: {
+      id: lecturer.id,
+      nidn: lecturer.nidn,
+      full_name: lecturer.fullName,
+    },
     course: classItem.course,
     room: classItem.room,
     schedules: classItem.schedules.map((schedule) => ({

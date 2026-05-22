@@ -11,6 +11,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
@@ -31,17 +32,17 @@ export function RegisterScreen({
 
   const handleRegister = async () => {
     if (!name || !email || !password || !confirmPassword) {
-      alert("Please fill in all fields");
+      Alert.alert("Please fill in all fields");
       return;
     }
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      Alert.alert("Passwords do not match");
       return;
     }
 
     if (password.length < 6) {
-      alert("Password must be at least 6 characters");
+      Alert.alert("Password must be at least 6 characters");
       return;
     }
 

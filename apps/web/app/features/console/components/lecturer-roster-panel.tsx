@@ -39,7 +39,7 @@ export function LecturerRosterPanel({ lecturerRoster }: LecturerRosterPanelProps
                 {lecturerRoster.students.map((item) => (
                   <tr key={item.enrollment_id}>
                     <td>{item.student.nim}</td>
-                    <td>{item.student.name}</td>
+                    <td>{item.student.full_name}</td>
                     <td>{item.status}</td>
                     <td>{item.student.status}</td>
                   </tr>

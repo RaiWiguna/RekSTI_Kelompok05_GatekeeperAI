@@ -142,7 +142,7 @@ Props:
 - **Session:**
   - `accessToken`: Token untuk API
   - `refreshToken`: Token untuk refresh
-  - `user`: Data user (id, name, role)
+- `user`: Data user (id, account_name, role)
 
 ## 📝 Customization
 

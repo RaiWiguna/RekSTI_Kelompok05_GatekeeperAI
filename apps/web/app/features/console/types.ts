@@ -29,7 +29,7 @@ export type LecturerClassCard = {
   lecturer: {
     id: string;
     nidn: string;
-    name: string;
+    full_name: string;
   };
   course: {
     id: string;
@@ -68,8 +68,8 @@ export type LecturerClassRoster = {
   };
   lecturer: {
     id: string;
-    userId?: string | null;
-    name: string;
+    user_id?: string | null;
+    full_name: string;
     nidn: string;
   };
   students: Array<{
@@ -78,7 +78,7 @@ export type LecturerClassRoster = {
     student: {
       id: string;
       nim: string;
-      name: string;
+      full_name: string;
       status: string;
     };
   }>;

@@ -23,7 +23,7 @@ export class StudentsService {
     const { skip, take, page, limit } = getPaginationParams(query);
     const where = {
       ...(query.status ? { status: toStudentStatus(query.status) } : {}),
-      ...buildContainsSearchFilter(query.search, ["nim", "name"]),
+      ...buildContainsSearchFilter(query.search, ["nim", "fullName"]),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -75,7 +75,7 @@ export class StudentsService {
       const student = await this.prisma.student.create({
         data: {
           nim: payload.nim,
-          name: payload.name,
+          fullName: payload.full_name,
           status: toStudentStatus(payload.status),
           ...(payload.user_id ? { userId: payload.user_id } : {}),
         },
@@ -104,7 +104,9 @@ export class StudentsService {
         where: { id },
         data: {
           ...(payload.nim !== undefined ? { nim: payload.nim } : {}),
-          ...(payload.name !== undefined ? { name: payload.name } : {}),
+          ...(payload.full_name !== undefined
+            ? { fullName: payload.full_name }
+            : {}),
           ...(payload.status !== undefined
             ? { status: toStudentStatus(payload.status) }
             : {}),
@@ -187,7 +189,7 @@ function mapStudent(student: {
   id: string;
   userId: string | null;
   nim: string;
-  name: string;
+  fullName: string;
   status: Parameters<typeof fromStudentStatus>[0];
   createdAt: Date;
   updatedAt: Date;
@@ -202,7 +204,7 @@ function mapStudent(student: {
     id: student.id,
     user_id: student.userId,
     nim: student.nim,
-    name: student.name,
+    full_name: student.fullName,
     status: fromStudentStatus(student.status),
     user: student.user
       ? {

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,12 +7,12 @@ import {
   SafeAreaView,
   ScrollView,
   Pressable,
-  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, Feather } from "@expo/vector-icons";
 
-// Data Dummy untuk daftar kelas yang diajar
+import { ProfileScreen } from "./ProfileScreen";
+
 const MY_CLASSES = [
   {
     id: 1,
@@ -41,46 +41,49 @@ const MY_CLASSES = [
 ];
 
 type HomeScreenDosenProps = {
-  onLogout?: () => void;
+  userId: string;
+  userName: string;
+  onLogout: () => void;
+  onUpdateName: (nextName: string) => void;
 };
 
-export function HomeScreenDosen({ onLogout }: HomeScreenDosenProps) {
-  const handleLogout = () => {
-    Alert.alert(
-      "Konfirmasi Logout",
-      "Apakah Anda yakin ingin keluar?",
-      [
-        { text: "Batal", onPress: () => {}, style: "cancel" },
-        {
-          text: "Logout",
-          onPress: () => onLogout?.(),
-          style: "destructive",
-        },
-      ]
+export function HomeScreenDosen({ userId, userName, onLogout, onUpdateName }: HomeScreenDosenProps) {
+  const [currentScreen, setCurrentScreen] = useState<"home" | "profile">("home");
+
+  if (currentScreen === "profile") {
+    return (
+      <ProfileScreen
+        variant="lecturer"
+        userId={userId}
+        userName={userName}
+        userRole="lecturer"
+        onSaveName={onUpdateName}
+        onLogout={onLogout}
+        onNavigateHome={() => setCurrentScreen("home")}
+        onNavigateMiddle={() => setCurrentScreen("home")}
+      />
     );
-  };
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Area Scroll Utama */}
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER SECTION */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.userInfo}>
               <Image
                 source={{
-                  uri: "https://ui-avatars.com/api/?name=Dr.+Budi&background=0066CC&color=fff&rounded=true&bold=true",
+                  uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=0066CC&color=fff&rounded=true&bold=true`,
                 }}
                 style={styles.avatar}
               />
               <View>
-                <Text style={styles.greeting}>Halo, Dr. Budi Rahardjo</Text>
+                <Text style={styles.greeting}>Halo, {userName}</Text>
                 <Text style={styles.subGreeting}>
                   Departemen Teknik Informatika
                 </Text>
@@ -92,7 +95,6 @@ export function HomeScreenDosen({ onLogout }: HomeScreenDosenProps) {
           </View>
         </View>
 
-        {/* STATISTICS CARD SECTION */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <View style={styles.statIcon}>
@@ -115,7 +117,6 @@ export function HomeScreenDosen({ onLogout }: HomeScreenDosenProps) {
           </View>
         </View>
 
-        {/* QUICK ACTION BUTTONS */}
         <View style={styles.quickActionsContainer}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
@@ -138,7 +139,6 @@ export function HomeScreenDosen({ onLogout }: HomeScreenDosenProps) {
           </View>
         </View>
 
-        {/* TODAY'S CLASS SECTION */}
         <View style={styles.classListContainer}>
           <Text style={styles.sectionTitle}>Kelas Hari Ini</Text>
 
@@ -168,11 +168,9 @@ export function HomeScreenDosen({ onLogout }: HomeScreenDosenProps) {
           ))}
         </View>
 
-        {/* Spacer agar tidak tertutup bottom navbar */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* CUSTOM BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
         <Pressable style={styles.navItemActive}>
           <View style={styles.navIconActiveBg}>
@@ -182,7 +180,7 @@ export function HomeScreenDosen({ onLogout }: HomeScreenDosenProps) {
         <Pressable style={styles.navItem}>
           <Ionicons name="document-text-outline" size={32} color="#FDEFD3" />
         </Pressable>
-        <Pressable style={styles.navItem} onPress={handleLogout}>
+        <Pressable style={styles.navItem} onPress={() => setCurrentScreen("profile")}>
           <Ionicons name="person-circle-outline" size={34} color="#FDEFD3" />
         </Pressable>
       </View>

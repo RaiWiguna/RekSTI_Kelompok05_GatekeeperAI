@@ -4,13 +4,14 @@ import {
   Text,
   View,
   Image,
-  SafeAreaView,
   ScrollView,
   Pressable,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, Feather } from "@expo/vector-icons";
+
 import { ClassListScreen } from "./ClassesMahasiswa";
+import { ProfileScreen } from "./ProfileScreen";
 
 const TODAY_COURSES = [
   {
@@ -43,16 +44,25 @@ const TODAY_COURSES = [
   },
 ];
 
-function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () => void }) {
-  // Fungsi untuk mendapatkan tanggal saat ini dalam format Indonesia
+type HomeScreenContentProps = {
+  userName: string;
+  onNavigateToClasses: () => void;
+  onNavigateToProfile: () => void;
+};
+
+function HomeScreenContent({
+  userName,
+  onNavigateToClasses,
+  onNavigateToProfile,
+}: HomeScreenContentProps) {
   const getCurrentDate = () => {
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     };
-    return new Date().toLocaleDateString('id-ID', options);
+    return new Date().toLocaleDateString("id-ID", options);
   };
 
   const currentDate = getCurrentDate();
@@ -65,18 +75,17 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER SECTION */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.userInfo}>
               <Image
                 source={{
-                  uri: "https://ui-avatars.com/api/?name=Aliya&background=F44336&color=fff&rounded=true&bold=true",
+                  uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=F44336&color=fff&rounded=true&bold=true`,
                 }}
                 style={styles.avatar}
               />
               <View>
-                <Text style={styles.greeting}>Halo, Aliya</Text>
+                <Text style={styles.greeting}>Halo, {userName}</Text>
                 <Text style={styles.subGreeting}>
                   Sistem dan Teknologi Informasi - 2023
                 </Text>
@@ -88,7 +97,6 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
           </View>
         </View>
 
-        {/* ACTIVE CLASS CARD */}
         <View style={styles.activeCard}>
           <View style={styles.timerBadgeContainer}>
             <View style={styles.timerBox}>
@@ -111,7 +119,6 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
           </View>
 
           <View style={styles.punchContainer}>
-            {/* Arrive Card dengan Tanggal Otomatis */}
             <View style={styles.punchCard}>
               <View style={styles.punchHeader}>
                 <Text style={styles.punchTitle}>Arrive</Text>
@@ -121,7 +128,6 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
               <Text style={styles.punchDate}>{currentDate}</Text>
             </View>
 
-            {/* Depart Card dengan Tanggal Otomatis */}
             <View style={styles.punchCard}>
               <View style={styles.punchHeader}>
                 <Text style={styles.punchTitle}>Depart</Text>
@@ -133,9 +139,8 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
           </View>
         </View>
 
-        {/* TODAY'S COURSE LIST */}
         <View style={styles.courseListContainer}>
-          <Text style={styles.sectionTitle}>Today’s Course</Text>
+          <Text style={styles.sectionTitle}>Today's Course</Text>
 
           {TODAY_COURSES.map((course) => (
             <View key={course.id} style={styles.courseListItem}>
@@ -152,11 +157,10 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
             </View>
           ))}
         </View>
-        
+
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
         <Pressable style={styles.navItemActive}>
           <View style={styles.navIconActiveBg}>
@@ -166,7 +170,7 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
         <Pressable style={styles.navItem} onPress={onNavigateToClasses}>
           <Ionicons name="document-text-outline" size={32} color="#FDEFD3" />
         </Pressable>
-        <Pressable style={styles.navItem}>
+        <Pressable style={styles.navItem} onPress={onNavigateToProfile}>
           <Ionicons name="person-circle-outline" size={34} color="#FDEFD3" />
         </Pressable>
       </View>
@@ -174,22 +178,48 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
   );
 }
 
-function ClassesMahasiswaWrapper({ onNavigateHome }: { onNavigateHome: () => void }) {
-  return (
-    <View style={styles.container}>
-      <ClassListScreen onNavigateHome={onNavigateHome} />
-    </View>
-  );
-}
+type HomeScreenProps = {
+  onLogout: () => void;
+  userName: string;
+  userId: string;
+  onUpdateName: (nextName: string) => void;
+};
 
-export function HomeScreen({ onLogout }: { onLogout: () => void }) {
-  const [currentScreen, setCurrentScreen] = useState<"home" | "classes">("home");
+export function HomeScreen({ onLogout, userName, userId, onUpdateName }: HomeScreenProps) {
+  const [currentScreen, setCurrentScreen] = useState<"home" | "classes" | "profile">("home");
 
   if (currentScreen === "classes") {
-    return <ClassesMahasiswaWrapper onNavigateHome={() => setCurrentScreen("home")} />;
+    return (
+      <ClassListScreen
+        userName={userName}
+        onNavigateHome={() => setCurrentScreen("home")}
+        onNavigateProfile={() => setCurrentScreen("profile")}
+      />
+    );
   }
 
-  return <HomeScreenContent onNavigateToClasses={() => setCurrentScreen("classes")} />;
+  if (currentScreen === "profile") {
+    return (
+      <ProfileScreen
+        variant="student"
+        userId={userId}
+        userName={userName}
+        userRole="student"
+        onSaveName={onUpdateName}
+        onLogout={onLogout}
+        onNavigateHome={() => setCurrentScreen("home")}
+        onNavigateMiddle={() => setCurrentScreen("classes")}
+      />
+    );
+  }
+
+  return (
+    <HomeScreenContent
+      userName={userName}
+      onNavigateToClasses={() => setCurrentScreen("classes")}
+      onNavigateToProfile={() => setCurrentScreen("profile")}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
@@ -204,7 +234,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#112D4E",
     paddingTop: 60,
     paddingHorizontal: 24,
-    paddingBottom: 30, 
+    paddingBottom: 30,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
   },
@@ -325,11 +355,11 @@ const styles = StyleSheet.create({
   punchDate: {
     fontSize: 10,
     color: "#64748B",
-    textAlign: 'center',
+    textAlign: "center",
   },
   courseListContainer: {
     paddingHorizontal: 24,
-    paddingTop: 30, 
+    paddingTop: 30,
   },
   sectionTitle: {
     fontSize: 20,
@@ -387,26 +417,26 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 36,
     borderTopRightRadius: 36,
     flexDirection: "row",
-    justifyContent: "space-between", // Meratakan jarak
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
   navItem: {
-    flex: 1, // Bungkus mengambil 1 bagian ruang
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   navItemActive: {
-    flex: 1, // Bungkus mengambil 1 bagian ruang
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -40, // Mengangkat tombol ke atas
+    marginTop: -40,
   },
   navIconActiveBg: {
-    width: 72, // Lebar pasti
-    height: 72, // Tinggi pasti
-    borderRadius: 36, // Setengah dari 72 agar jadi lingkaran sempurna
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: "#93C5FD",
     justifyContent: "center",
     alignItems: "center",

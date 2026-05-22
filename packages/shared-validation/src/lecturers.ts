@@ -8,7 +8,7 @@ import {
 
 export const createLecturerSchema = z.object({
   nidn: z.string().trim().min(3).max(32),
-  name: z.string().trim().min(3).max(120),
+  full_name: z.string().trim().min(3).max(120),
   status: activeInactiveStatusSchema.default("active"),
   user_id: uuidSchema.optional(),
 });

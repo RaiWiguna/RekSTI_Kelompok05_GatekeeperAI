@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import AdminConsole from "./admin-console";
 import SplashScreen from "./SplashScreen";
 import { LoginScreen, Session } from "./features/console/components/LoginScreen";
+import { getStoredAuthTokens, storeAuthTokens } from "./lib/api-client";
 import studentsImg from "./assets/students.png";
 import bgOnboard from "./assets/BG_Onboard.png";
 
@@ -13,6 +14,11 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>("splash");
 
   useEffect(() => {
+    if (getStoredAuthTokens()) {
+      setStep("console");
+      return;
+    }
+
     const timer = setTimeout(() => {
       setStep("onboarding");
     }, 2000);
@@ -21,11 +27,10 @@ export default function OnboardingPage() {
 
   // Fungsi ini dipanggil saat login di layar onboarding berhasil
   const handleLoginSuccess = (newSession: Session) => {
-    // Simpan token ke localStorage agar AdminConsole bisa membacanya
-    localStorage.setItem("gatekeeper_auth", JSON.stringify({
+    storeAuthTokens({
       accessToken: newSession.accessToken,
-      refreshToken: newSession.refreshToken
-    }));
+      refreshToken: newSession.refreshToken,
+    });
     setStep("console");
   };
 
@@ -35,9 +40,8 @@ export default function OnboardingPage() {
 
   if (step === "login") {
     return (
-      <LoginScreen 
-        onLoginSuccess={handleLoginSuccess} 
-        onNavigateToRegister={() => alert("Registration not implemented yet")}
+      <LoginScreen
+        onLoginSuccess={handleLoginSuccess}
       />
     );
   }

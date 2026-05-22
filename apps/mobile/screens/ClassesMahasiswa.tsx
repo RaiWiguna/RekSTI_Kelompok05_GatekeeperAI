@@ -8,9 +8,8 @@ import {
   Pressable,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, Feather } from "@expo/vector-icons";
 
-// Data Dummy untuk daftar kelas dan persentase kehadiran
 const CLASS_LIST = [
   {
     id: 1,
@@ -56,7 +55,13 @@ const CLASS_LIST = [
   },
 ];
 
-export function ClassListScreen({ onNavigateHome }: { onNavigateHome?: () => void } = {}) {
+type ClassListScreenProps = {
+  userName: string;
+  onNavigateHome: () => void;
+  onNavigateProfile: () => void;
+};
+
+export function ClassListScreen({ userName, onNavigateHome, onNavigateProfile }: ClassListScreenProps) {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -65,18 +70,17 @@ export function ClassListScreen({ onNavigateHome }: { onNavigateHome?: () => voi
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER SECTION */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.userInfo}>
               <Image
                 source={{
-                  uri: "https://ui-avatars.com/api/?name=Aliya&background=F44336&color=fff&rounded=true&bold=true",
+                  uri: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=F44336&color=fff&rounded=true&bold=true`,
                 }}
                 style={styles.avatar}
               />
               <View>
-                <Text style={styles.greeting}>Halo, Aliya</Text>
+                <Text style={styles.greeting}>Halo, {userName}</Text>
                 <Text style={styles.subGreeting}>
                   Sistem dan Teknologi Informasi - 2023
                 </Text>
@@ -88,11 +92,9 @@ export function ClassListScreen({ onNavigateHome }: { onNavigateHome?: () => voi
           </View>
         </View>
 
-        {/* CLASS LIST SECTION */}
         <View style={styles.listContainer}>
           {CLASS_LIST.map((item) => (
             <View key={item.id} style={styles.card}>
-              {/* Bagian Kiri: Info Kelas */}
               <View style={styles.cardInfo}>
                 <Text style={styles.courseTitle}>
                   {item.code} {item.name}
@@ -100,7 +102,6 @@ export function ClassListScreen({ onNavigateHome }: { onNavigateHome?: () => voi
                 <Text style={styles.courseLecturer}>{item.lecturer}</Text>
               </View>
 
-              {/* Bagian Kanan: Persentase & Tombol Panah */}
               <View style={styles.cardAction}>
                 <View style={styles.attendanceBadge}>
                   <Text style={styles.attendanceText}>{item.attendance}</Text>
@@ -112,27 +113,22 @@ export function ClassListScreen({ onNavigateHome }: { onNavigateHome?: () => voi
             </View>
           ))}
         </View>
-        
-        {/* Spacer untuk Bottom Navigation */}
+
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
-        {/* Ikon Kiri (Home - Inactive) */}
         <Pressable style={styles.navItem} onPress={onNavigateHome}>
           <Ionicons name="home-outline" size={32} color="#FDEFD3" />
         </Pressable>
 
-        {/* Ikon Tengah (Absen/Dokumen - Active) */}
         <Pressable style={styles.navItemActive}>
           <View style={styles.navIconActiveBg}>
-            <MaterialCommunityIcons name="text-box-check-outline" size={32} color="#FFFFFF" />
+            <Ionicons name="document-text" size={32} color="#FFFFFF" />
           </View>
         </Pressable>
 
-        {/* Ikon Kanan (Profile - Inactive) */}
-        <Pressable style={styles.navItem}>
+        <Pressable style={styles.navItem} onPress={onNavigateProfile}>
           <Ionicons name="person-circle-outline" size={34} color="#FDEFD3" />
         </Pressable>
       </View>
@@ -143,7 +139,7 @@ export function ClassListScreen({ onNavigateHome }: { onNavigateHome?: () => voi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC", // Sedikit abu-abu terang agar kartu putih lebih menonjol
+    backgroundColor: "#F8FAFC",
   },
   scrollContent: {
     flexGrow: 1,
@@ -152,7 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#112D4E",
     paddingTop: 60,
     paddingHorizontal: 24,
-    paddingBottom: 30, 
+    paddingBottom: 30,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
   },
@@ -205,7 +201,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 2, // Shadow untuk Android
+    elevation: 2,
   },
   cardInfo: {
     flex: 1,
@@ -228,7 +224,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   attendanceBadge: {
-    backgroundColor: "#FDEFD3", // Warna krem/kuning muda
+    backgroundColor: "#FDEFD3",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
@@ -252,7 +248,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   bottomSpacer: {
-    height: 120, // Ruang kosong agar item terbawah tidak tertutup navigasi
+    height: 120,
   },
   bottomNav: {
     position: "absolute",
@@ -264,18 +260,18 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 36,
     borderTopRightRadius: 36,
     flexDirection: "row",
-    justifyContent: "space-between", // Gunakan space-between
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
   navItem: {
-    flex: 1, // Pastikan ini ada agar lebar merata
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   navItemActive: {
-    flex: 1, // Pastikan ini ada agar lebar merata
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     marginTop: -40,
@@ -284,7 +280,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "#93C5FD", 
+    backgroundColor: "#93C5FD",
     justifyContent: "center",
     alignItems: "center",
   },

@@ -8,7 +8,7 @@ export const loginSchema = z.object({
 export const registerSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  name: z.string().trim().min(1, "Name is required"),
+  account_name: z.string().trim().min(1, "Account name is required"),
 });
 
 export const refreshTokenSchema = z.object({

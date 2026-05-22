@@ -70,9 +70,9 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
         name: "lecturer_id",
         label: "Lecturer",
         type: "select",
-        getOptions: (store) => buildOptions(store.lecturers, "id", "name", "nidn"),
+        getOptions: (store) => buildOptions(store.lecturers, "id", "full_name", "nidn"),
       },
-      { name: "name", label: "Display Name", placeholder: "Dr. A" },
+      { name: "account_name", label: "Account Name", placeholder: "dr.a.gatekeeper" },
       { name: "email", label: "Email", placeholder: "dosen@kampus.ac.id" },
       { name: "password", label: "Password", type: "password", placeholder: "Minimum 8 characters" },
       {
@@ -83,10 +83,10 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
       },
     ],
     columns: [
-      { key: "name", label: "Name", render: (item) => text(item.name) },
+      { key: "account_name", label: "Account Name", render: (item) => text(item.account_name) },
       { key: "email", label: "Email", render: (item) => text(item.email) },
       { key: "status", label: "Status", render: (item) => text(item.status) },
-      { key: "lecturer", label: "Lecturer", render: (item) => nestedText(item.lecturer, "name") },
+      { key: "lecturer", label: "Lecturer", render: (item) => nestedText(item.lecturer, "full_name") },
       { key: "updated_at", label: "Updated", render: (item) => shortDate(item.updated_at) },
     ],
   },
@@ -99,7 +99,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     emptyMessage: "No student records yet.",
     fields: [
       { name: "nim", label: "NIM", placeholder: "220123456" },
-      { name: "name", label: "Name", placeholder: "Budi" },
+      { name: "full_name", label: "Full Name", placeholder: "Budi Santoso" },
       {
         name: "status",
         label: "Status",
@@ -109,7 +109,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     ],
     columns: [
       { key: "nim", label: "NIM", render: (item) => text(item.nim) },
-      { key: "name", label: "Name", render: (item) => text(item.name) },
+      { key: "full_name", label: "Full Name", render: (item) => text(item.full_name) },
       { key: "status", label: "Status", render: (item) => text(item.status) },
       { key: "updated_at", label: "Updated", render: (item) => shortDate(item.updated_at) },
     ],
@@ -123,7 +123,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     emptyMessage: "No lecturer records yet.",
     fields: [
       { name: "nidn", label: "NIDN", placeholder: "100200300" },
-      { name: "name", label: "Name", placeholder: "Dr. A" },
+      { name: "full_name", label: "Full Name", placeholder: "Dr. Andika Pratama" },
       {
         name: "status",
         label: "Status",
@@ -133,7 +133,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     ],
     columns: [
       { key: "nidn", label: "NIDN", render: (item) => text(item.nidn) },
-      { key: "name", label: "Name", render: (item) => text(item.name) },
+      { key: "full_name", label: "Full Name", render: (item) => text(item.full_name) },
       { key: "status", label: "Status", render: (item) => text(item.status) },
       {
         key: "user",
@@ -235,7 +235,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
         name: "lecturer_id",
         label: "Lecturer",
         type: "select",
-        getOptions: (store) => buildOptions(store.lecturers, "id", "name", "nidn"),
+        getOptions: (store) => buildOptions(store.lecturers, "id", "full_name", "nidn"),
       },
       {
         name: "room_id",
@@ -302,7 +302,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
         name: "student_id",
         label: "Student",
         type: "select",
-        getOptions: (store) => buildOptions(store.students, "id", "name", "nim"),
+        getOptions: (store) => buildOptions(store.students, "id", "full_name", "nim"),
       },
       {
         name: "class_id",
@@ -318,7 +318,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
       },
     ],
     columns: [
-      { key: "student", label: "Student", render: (item) => nestedText(item.student, "name") },
+      { key: "student", label: "Student", render: (item) => nestedText(item.student, "full_name") },
       { key: "class", label: "Class", render: (item) => nestedText(item.class, "class_code") },
       { key: "status", label: "Status", render: (item) => text(item.status) },
       { key: "updated_at", label: "Updated", render: (item) => shortDate(item.updated_at) },

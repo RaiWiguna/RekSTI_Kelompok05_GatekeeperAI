@@ -1,7 +1,9 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Query, UseGuards } from "@nestjs/common";
 import {
   todayViewQuerySchema,
+  updateUserAccountSchema,
   type TodayViewQueryInput,
+  type UpdateUserAccountInput,
 } from "@gatekeeper/shared-validation";
 
 import { CurrentUser } from "../common/auth/current-user.decorator";
@@ -44,6 +46,17 @@ export class MeController {
   @Roles("lecturer")
   async getLecturerClasses(@CurrentUser() user: AuthUser) {
     const data = await this.meService.getLecturerClasses(user);
+    return successResponse(data);
+  }
+
+  @Patch("profile")
+  @Roles("student", "lecturer", "admin")
+  async updateProfile(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(updateUserAccountSchema))
+    payload: UpdateUserAccountInput,
+  ) {
+    const data = await this.meService.updateProfile(user, payload);
     return successResponse(data);
   }
 }

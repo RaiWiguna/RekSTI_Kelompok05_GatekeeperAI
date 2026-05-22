@@ -22,14 +22,14 @@ async function main() {
   const adminUser = await prisma.user.upsert({
     where: { email: adminEmail },
     update: {
-      name: "Gatekeeper Admin",
+      accountName: "Gatekeeper Admin",
       role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,
       passwordHash: adminPasswordHash,
     },
     create: {
       email: adminEmail,
-      name: "Gatekeeper Admin",
+      accountName: "Gatekeeper Admin",
       role: UserRole.ADMIN,
       status: UserStatus.ACTIVE,
       passwordHash: adminPasswordHash,
@@ -39,14 +39,14 @@ async function main() {
   const lecturerUser = await prisma.user.upsert({
     where: { email: lecturerEmail },
     update: {
-      name: "Gatekeeper Lecturer",
+      accountName: "Gatekeeper Lecturer",
       role: UserRole.LECTURER,
       status: UserStatus.ACTIVE,
       passwordHash: lecturerPasswordHash,
     },
     create: {
       email: lecturerEmail,
-      name: "Gatekeeper Lecturer",
+      accountName: "Gatekeeper Lecturer",
       role: UserRole.LECTURER,
       status: UserStatus.ACTIVE,
       passwordHash: lecturerPasswordHash,
@@ -56,14 +56,14 @@ async function main() {
   const studentUser = await prisma.user.upsert({
     where: { email: studentEmail },
     update: {
-      name: "Gatekeeper Student",
+      accountName: "Gatekeeper Student",
       role: UserRole.STUDENT,
       status: UserStatus.ACTIVE,
       passwordHash: studentPasswordHash,
     },
     create: {
       email: studentEmail,
-      name: "Gatekeeper Student",
+      accountName: "Gatekeeper Student",
       role: UserRole.STUDENT,
       status: UserStatus.ACTIVE,
       passwordHash: studentPasswordHash,
@@ -73,13 +73,13 @@ async function main() {
   await prisma.lecturer.upsert({
     where: { nidn: "100200300" },
     update: {
-      name: "Gatekeeper Lecturer",
+      fullName: "Gatekeeper Lecturer",
       status: LecturerStatus.ACTIVE,
       userId: lecturerUser.id,
     },
     create: {
       nidn: "100200300",
-      name: "Gatekeeper Lecturer",
+      fullName: "Gatekeeper Lecturer",
       status: LecturerStatus.ACTIVE,
       userId: lecturerUser.id,
     },
@@ -88,13 +88,13 @@ async function main() {
   await prisma.student.upsert({
     where: { nim: "220123456" },
     update: {
-      name: "Gatekeeper Student",
+      fullName: "Gatekeeper Student",
       status: StudentStatus.ACTIVE,
       userId: studentUser.id,
     },
     create: {
       nim: "220123456",
-      name: "Gatekeeper Student",
+      fullName: "Gatekeeper Student",
       status: StudentStatus.ACTIVE,
       userId: studentUser.id,
     },

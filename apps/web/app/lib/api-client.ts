@@ -10,7 +10,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
 export type SessionUser = {
   id: string;
   email: string;
-  name: string;
+  account_name: string;
   role: "student" | "admin" | "lecturer";
 };
 

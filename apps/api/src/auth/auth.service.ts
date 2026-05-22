@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from "@nestjs/common";
+import { Injectable, UnauthorizedException, ConflictException, Logger } from "@nestjs/common";
 import { UserRole, UserStatus } from "@prisma/client";
 import { JwtService } from "@nestjs/jwt";
 import * as argon2 from "argon2";
@@ -11,43 +11,81 @@ import type { AuthTokenPayload } from "./auth.types";
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {}
 
   async login(input: LoginInput) {
+    const normalizedEmail = input.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
-      where: { email: input.email },
+      where: { email: normalizedEmail },
       select: {
         id: true,
         email: true,
-        name: true,
+        accountName: true,
         role: true,
         status: true,
         passwordHash: true,
       },
     });
 
-    if (!user || user.status !== UserStatus.ACTIVE || !isInteractiveUserRole(user.role)) {
-      throw invalidAuthException();
+    if (!user) {
+      this.logLoginFailure({
+        email: normalizedEmail,
+        reason: "user_not_found",
+      });
+      throw authFailureException("auth_user_not_found", "Akun anda belum terdaftar.");
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      this.logLoginFailure({
+        email: normalizedEmail,
+        userId: user.id,
+        reason: "inactive_user",
+      });
+      throw authFailureException("auth_user_inactive", "Akun anda belum aktif. Hubungi admin.");
+    }
+
+    if (!isInteractiveUserRole(user.role)) {
+      this.logLoginFailure({
+        email: normalizedEmail,
+        userId: user.id,
+        reason: "role_not_allowed",
+      });
+      throw authFailureException("auth_role_not_allowed", "Role akun tidak diizinkan untuk login aplikasi.");
     }
 
     const isPasswordValid = await argon2.verify(user.passwordHash, input.password);
 
     if (!isPasswordValid) {
-      throw invalidAuthException();
+      this.logLoginFailure({
+        email: normalizedEmail,
+        userId: user.id,
+        reason: "invalid_password",
+      });
+      throw authFailureException("auth_invalid_password", "Password yang dimasukkan salah.");
     }
 
     const authUser = mapUserToAuthUser(user);
     const tokens = await this.issueTokens(authUser);
+    this.logger.log(
+      JSON.stringify({
+        action: "login_success",
+        userId: authUser.userId,
+        role: authUser.role,
+        email: maskEmail(authUser.email),
+      }),
+    );
 
     return {
       access_token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
       user: {
         id: authUser.userId,
-        name: authUser.name,
+        account_name: authUser.accountName,
         role: authUser.role,
       },
     };
@@ -70,7 +108,7 @@ export class AuthService {
     const user = await this.prisma.user.create({
       data: {
         email: input.email,
-        name: input.name,
+        accountName: input.account_name,
         passwordHash,
         role: UserRole.STUDENT,
         status: UserStatus.ACTIVE,
@@ -78,7 +116,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        name: true,
+        accountName: true,
         role: true,
         status: true,
       },
@@ -92,7 +130,7 @@ export class AuthService {
       refresh_token: tokens.refreshToken,
       user: {
         id: authUser.userId,
-        name: authUser.name,
+        account_name: authUser.accountName,
         role: authUser.role,
       },
     };
@@ -118,7 +156,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        name: true,
+        accountName: true,
         role: true,
         status: true,
       },
@@ -136,7 +174,7 @@ export class AuthService {
       refresh_token: tokens.refreshToken,
       user: {
         id: authUser.userId,
-        name: authUser.name,
+        account_name: authUser.accountName,
         role: authUser.role,
       },
     };
@@ -148,7 +186,7 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        name: true,
+        accountName: true,
         role: true,
         status: true,
       },
@@ -161,7 +199,7 @@ export class AuthService {
     return {
       id: user.id,
       email: user.email,
-      name: user.name,
+      account_name: user.accountName,
       role: normalizeUserRole(user.role),
     };
   }
@@ -170,7 +208,7 @@ export class AuthService {
     const accessPayload: AuthTokenPayload = {
       sub: user.userId,
       email: user.email,
-      name: user.name,
+      account_name: user.accountName,
       role: user.role,
       type: "access",
     };
@@ -192,18 +230,33 @@ export class AuthService {
 
     return { accessToken, refreshToken };
   }
+
+  private logLoginFailure(params: {
+    email: string;
+    reason: "user_not_found" | "inactive_user" | "role_not_allowed" | "invalid_password";
+    userId?: string;
+  }) {
+    this.logger.warn(
+      JSON.stringify({
+        action: "login_failed",
+        reason: params.reason,
+        email: maskEmail(params.email),
+        userId: params.userId ?? null,
+      }),
+    );
+  }
 }
 
 function mapUserToAuthUser(user: {
   id: string;
   email: string;
-  name: string;
+  accountName: string;
   role: UserRole;
 }) {
   return {
     userId: user.id,
     email: user.email,
-    name: user.name,
+    accountName: user.accountName,
     role: normalizeUserRole(user.role),
   } satisfies AuthUser;
 }
@@ -223,9 +276,29 @@ function invalidAuthException() {
   });
 }
 
+function authFailureException(code: string, message: string) {
+  return new UnauthorizedException({
+    code,
+    message,
+  });
+}
+
 function invalidRefreshException() {
   return new UnauthorizedException({
     code: "invalid_auth",
     message: "Invalid refresh token",
   });
+}
+
+function maskEmail(email: string) {
+  const [name, domain] = email.split("@");
+  if (!name || !domain) {
+    return "***";
+  }
+
+  if (name.length <= 2) {
+    return `${name[0] ?? "*"}*@${domain}`;
+  }
+
+  return `${name.slice(0, 2)}***@${domain}`;
 }

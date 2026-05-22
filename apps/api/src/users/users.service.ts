@@ -88,7 +88,7 @@ export class UsersService {
             select: {
               id: true,
               nim: true,
-              name: true,
+              fullName: true,
               status: true,
             },
           },
@@ -96,7 +96,7 @@ export class UsersService {
             select: {
               id: true,
               nidn: true,
-              name: true,
+              fullName: true,
               status: true,
             },
           },
@@ -119,7 +119,7 @@ export class UsersService {
           select: {
             id: true,
             nim: true,
-            name: true,
+            fullName: true,
             status: true,
           },
         },
@@ -127,7 +127,7 @@ export class UsersService {
           select: {
             id: true,
             nidn: true,
-            name: true,
+            fullName: true,
             status: true,
           },
         },
@@ -144,7 +144,7 @@ export class UsersService {
         const user = await transaction.user.create({
           data: {
             role: toUserRole(payload.role),
-            name: payload.name,
+            accountName: payload.account_name,
             email: payload.email,
             passwordHash,
             status: toUserStatus(payload.status),
@@ -167,7 +167,7 @@ export class UsersService {
               select: {
                 id: true,
                 nim: true,
-                name: true,
+                fullName: true,
                 status: true,
               },
             },
@@ -175,7 +175,7 @@ export class UsersService {
               select: {
                 id: true,
                 nidn: true,
-                name: true,
+                fullName: true,
                 status: true,
               },
             },
@@ -214,7 +214,9 @@ export class UsersService {
         await transaction.user.update({
           where: { id },
           data: {
-            ...(payload.name !== undefined ? { name: payload.name } : {}),
+            ...(payload.account_name !== undefined
+              ? { accountName: payload.account_name }
+              : {}),
             ...(payload.email !== undefined ? { email: payload.email } : {}),
             ...(payload.status !== undefined
               ? { status: toUserStatus(payload.status) }
@@ -238,7 +240,7 @@ export class UsersService {
               select: {
                 id: true,
                 nim: true,
-                name: true,
+                fullName: true,
                 status: true,
               },
             },
@@ -246,7 +248,7 @@ export class UsersService {
               select: {
                 id: true,
                 nidn: true,
-                name: true,
+                fullName: true,
                 status: true,
               },
             },
@@ -273,7 +275,7 @@ export class UsersService {
             select: {
               id: true,
               nim: true,
-              name: true,
+              fullName: true,
               status: true,
             },
           },
@@ -281,7 +283,7 @@ export class UsersService {
             select: {
               id: true,
               nidn: true,
-              name: true,
+              fullName: true,
               status: true,
             },
           },
@@ -306,7 +308,7 @@ export class UsersService {
             select: {
               id: true,
               nim: true,
-              name: true,
+              fullName: true,
               status: true,
             },
           },
@@ -314,7 +316,7 @@ export class UsersService {
             select: {
               id: true,
               nidn: true,
-              name: true,
+              fullName: true,
               status: true,
             },
           },
@@ -336,7 +338,7 @@ function buildUserSearchFilter(search: string | undefined) {
   return {
     OR: [
       {
-        name: {
+        accountName: {
           contains: search,
           mode: "insensitive" as const,
         },
@@ -350,7 +352,7 @@ function buildUserSearchFilter(search: string | undefined) {
       {
         studentProfile: {
           is: {
-            name: {
+            fullName: {
               contains: search,
               mode: "insensitive" as const,
             },
@@ -370,7 +372,7 @@ function buildUserSearchFilter(search: string | undefined) {
       {
         lecturerProfile: {
           is: {
-            name: {
+            fullName: {
               contains: search,
               mode: "insensitive" as const,
             },
@@ -452,7 +454,7 @@ async function syncLecturerLink(
       where: { id: input.nextStudentId },
       select: {
         id: true,
-        name: true,
+        fullName: true,
         userId: true,
       },
     });
@@ -461,7 +463,7 @@ async function syncLecturerLink(
     if (linkedStudent.userId) {
       throw new ConflictException({
         code: "duplicate_record",
-        message: `Student ${linkedStudent.name} is already linked to another account`,
+        message: `Student ${linkedStudent.fullName} is already linked to another account`,
       });
     }
 
@@ -479,7 +481,7 @@ async function syncLecturerLink(
     where: { id: input.nextLecturerId },
     select: {
       id: true,
-      name: true,
+      fullName: true,
       userId: true,
     },
   });
@@ -488,7 +490,7 @@ async function syncLecturerLink(
   if (linkedLecturer.userId && linkedLecturer.userId !== input.userId) {
     throw new ConflictException({
       code: "duplicate_record",
-      message: `Lecturer ${linkedLecturer.name} is already linked to another account`,
+      message: `Lecturer ${linkedLecturer.fullName} is already linked to another account`,
     });
   }
 
@@ -501,7 +503,7 @@ async function syncLecturerLink(
 function mapUserAccount(user: {
   id: string;
   role: Parameters<typeof fromUserRole>[0];
-  name: string;
+  accountName: string;
   email: string;
   status: Parameters<typeof fromUserStatus>[0];
   createdAt: Date;
@@ -509,20 +511,20 @@ function mapUserAccount(user: {
   studentProfile?: {
     id: string;
     nim: string;
-    name: string;
+    fullName: string;
     status: Parameters<typeof fromStudentStatus>[0];
   } | null;
   lecturerProfile?: {
     id: string;
     nidn: string;
-    name: string;
+    fullName: string;
     status: Parameters<typeof fromLecturerStatus>[0];
   } | null;
 }) {
   return {
     id: user.id,
     role: fromUserRole(user.role),
-    name: user.name,
+    account_name: user.accountName,
     email: user.email,
     status: fromUserStatus(user.status),
     student_id: user.studentProfile?.id ?? null,
@@ -530,7 +532,7 @@ function mapUserAccount(user: {
       ? {
           id: user.studentProfile.id,
           nim: user.studentProfile.nim,
-          name: user.studentProfile.name,
+          full_name: user.studentProfile.fullName,
           status: fromStudentStatus(user.studentProfile.status),
         }
       : null,
@@ -539,7 +541,7 @@ function mapUserAccount(user: {
       ? {
           id: user.lecturerProfile.id,
           nidn: user.lecturerProfile.nidn,
-          name: user.lecturerProfile.name,
+          full_name: user.lecturerProfile.fullName,
           status: fromLecturerStatus(user.lecturerProfile.status),
         }
       : null,

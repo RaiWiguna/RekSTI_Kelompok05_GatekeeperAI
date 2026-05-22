@@ -2,15 +2,35 @@
 
 import React, { useState, FormEvent } from "react";
 import studentsImg from "../../../assets/students.png";
+import { apiRequest, type SessionUser } from "../../../lib/api-client";
 
 export type Session = {
   accessToken: string;
   refreshToken: string;
-  user: {
-    id: string;
-    name: string;
-    role: string;
-  };
+  user: SessionUser;
+};
+
+type AuthResponse = {
+  access_token: string;
+  refresh_token: string;
+  user: SessionUser;
+};
+
+type LoginRole = "student" | "lecturer" | "admin";
+
+const roleOptions: Array<{
+  value: LoginRole;
+  label: string;
+}> = [
+  { value: "student", label: "Mahasiswa" },
+  { value: "lecturer", label: "Dosen" },
+  { value: "admin", label: "Admin" },
+];
+
+const roleLabels: Record<LoginRole, string> = {
+  student: "Mahasiswa",
+  lecturer: "Dosen",
+  admin: "Admin",
 };
 
 type LoginScreenProps = {
@@ -24,46 +44,57 @@ export function LoginScreen({
 }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"mahasiswa" | "dosen" | null>(null);
+  const [selectedRole, setSelectedRole] = useState<LoginRole | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
+    setError(null);
 
     if (!email || !password) {
-      alert("Please fill in all fields");
+      setError("Please fill in all fields.");
       return;
     }
 
     if (!selectedRole) {
-      alert("Please select your role");
+      setError("Please select your role.");
       return;
     }
 
     if (password.length < 6) {
-      alert("Password must be at least 6 characters");
+      setError("Password must be at least 6 characters.");
       return;
     }
 
     setIsLoading(true);
-    
-    // Simulasi delay jaringan
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    // Penting: Gunakan prefix "mock-" dan sertakan role (student/lecturer) dalam token
-    const roleKey = selectedRole === "mahasiswa" ? "student" : "lecturer";
-    const mockSession: Session = {
-      accessToken: `mock-${roleKey}-token-${Math.random().toString(36).substring(2, 9)}`,
-      refreshToken: "mock-refresh-token",
-      user: {
-        id: "user_" + Math.random().toString(36).substring(2, 9),
-        name: email.split("@")[0] || "User",
-        role: selectedRole,
-      },
-    };
-    
-    onLoginSuccess(mockSession);
-    setIsLoading(false);
+
+    try {
+      const auth = await apiRequest<AuthResponse>("auth/login", {
+        method: "POST",
+        body: {
+          email,
+          password,
+        },
+      });
+
+      if (auth.user.role !== selectedRole) {
+        setError(
+          `Akun ini terdaftar sebagai ${roleLabels[auth.user.role]}, bukan ${roleLabels[selectedRole]}.`,
+        );
+        return;
+      }
+
+      onLoginSuccess({
+        accessToken: auth.access_token,
+        refreshToken: auth.refresh_token,
+        user: auth.user,
+      });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -152,10 +183,11 @@ export function LoginScreen({
         .role-buttons-container {
           display: flex;
           gap: 12px;
+          flex-wrap: wrap;
         }
 
         .role-button {
-          flex: 1;
+          flex: 1 1 110px;
           border: 2px solid #D9D9D9;
           border-radius: 8px;
           padding: 12px;
@@ -208,14 +240,22 @@ export function LoginScreen({
           cursor: pointer;
           margin-left: 4px;
         }
+
+        .error-message {
+          color: #dc2626;
+          font-size: 13px;
+          line-height: 1.4;
+          margin-bottom: 16px;
+          text-align: center;
+        }
       `}</style>
 
       <div className="login-card">
         <div className="logo-container">
-          <img 
+          <img
             src={studentsImg.src}
-            alt="Logo" 
-            className="logo" 
+            alt="Logo"
+            className="logo"
           />
           <div className="brand-text">
             Gatekeeper<span className="brand-highlight">-AI</span>
@@ -225,6 +265,8 @@ export function LoginScreen({
         <h1 className="welcome-text">Welcome Back</h1>
 
         <form onSubmit={handleLogin} className="form">
+          {error && <div className="error-message">{error}</div>}
+
           <div className="input-group">
             <label className="label">Email</label>
             <input
@@ -254,22 +296,17 @@ export function LoginScreen({
           <div className="input-group">
             <label className="label">Pilih Role</label>
             <div className="role-buttons-container">
-              <button
-                type="button"
-                className={`role-button ${selectedRole === "mahasiswa" ? "active" : ""}`}
-                onClick={() => setSelectedRole("mahasiswa")}
-                disabled={isLoading}
-              >
-                👨‍🎓 Mahasiswa
-              </button>
-              <button
-                type="button"
-                className={`role-button ${selectedRole === "dosen" ? "active" : ""}`}
-                onClick={() => setSelectedRole("dosen")}
-                disabled={isLoading}
-              >
-                👨‍🏫 Dosen
-              </button>
+              {roleOptions.map((role) => (
+                <button
+                  key={role.value}
+                  type="button"
+                  className={`role-button ${selectedRole === role.value ? "active" : ""}`}
+                  onClick={() => setSelectedRole(role.value)}
+                  disabled={isLoading}
+                >
+                  {role.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -277,10 +314,12 @@ export function LoginScreen({
             {isLoading ? "Processing..." : "Log In"}
           </button>
 
-          <div className="footer">
-            <span className="footer-text">Don't have an account? </span>
-            <span className="link-text" onClick={onNavigateToRegister}>Register</span>
-          </div>
+          {onNavigateToRegister ? (
+            <div className="footer">
+              <span className="footer-text">Don't have an account? </span>
+              <span className="link-text" onClick={onNavigateToRegister}>Register</span>
+            </div>
+          ) : null}
         </form>
       </div>
     </div>

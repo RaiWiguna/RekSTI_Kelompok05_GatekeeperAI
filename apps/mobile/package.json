@@ -6,11 +6,16 @@
   "scripts": {
     "build": "echo build mobile",
     "dev": "expo start",
+    "dev:mobile:stack": "node ../../scripts/dev-stack.mjs mobile",
+    "dev:mobile:stack:android": "node ../../scripts/dev-stack.mjs mobile android",
+    "dev:mobile:stack:device": "node ../../scripts/dev-stack.mjs mobile device",
+    "dev:mobile:stack:localhost": "node ../../scripts/dev-stack.mjs mobile localhost",
     "lint": "echo lint mobile",
     "test": "echo test mobile",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "expo": "^54.0.34",
     "expo-status-bar": "^3.0.9",

@@ -23,7 +23,7 @@ export class LecturersService {
     const { skip, take, page, limit } = getPaginationParams(query);
     const where = {
       ...(query.status ? { status: toLecturerStatus(query.status) } : {}),
-      ...buildContainsSearchFilter(query.search, ["nidn", "name"]),
+      ...buildContainsSearchFilter(query.search, ["nidn", "fullName"]),
     };
 
     const [items, total] = await this.prisma.$transaction([
@@ -76,7 +76,7 @@ export class LecturersService {
       const lecturer = await this.prisma.lecturer.create({
         data: {
           nidn: payload.nidn,
-          name: payload.name,
+          fullName: payload.full_name,
           status: toLecturerStatus(payload.status),
           ...(payload.user_id ? { userId: payload.user_id } : {}),
         },
@@ -105,7 +105,9 @@ export class LecturersService {
         where: { id },
         data: {
           ...(payload.nidn !== undefined ? { nidn: payload.nidn } : {}),
-          ...(payload.name !== undefined ? { name: payload.name } : {}),
+          ...(payload.full_name !== undefined
+            ? { fullName: payload.full_name }
+            : {}),
           ...(payload.status !== undefined
             ? { status: toLecturerStatus(payload.status) }
             : {}),
@@ -188,7 +190,7 @@ function mapLecturer(lecturer: {
   id: string;
   userId: string | null;
   nidn: string;
-  name: string;
+  fullName: string;
   status: Parameters<typeof fromLecturerStatus>[0];
   createdAt: Date;
   updatedAt: Date;
@@ -203,7 +205,7 @@ function mapLecturer(lecturer: {
     id: lecturer.id,
     user_id: lecturer.userId,
     nidn: lecturer.nidn,
-    name: lecturer.name,
+    full_name: lecturer.fullName,
     status: fromLecturerStatus(lecturer.status),
     user: lecturer.user
       ? {

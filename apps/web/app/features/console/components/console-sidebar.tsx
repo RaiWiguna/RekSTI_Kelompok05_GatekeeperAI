@@ -35,7 +35,7 @@ export function ConsoleSidebar({
 
       <div className="session">
         <span className="session-label">Signed In As</span>
-        <span className="session-value">{user.name}</span>
+        <span className="session-value">{user.account_name}</span>
         <span className="muted">{user.email}</span>
         <span className="badge">{user.role}</span>
       </div>

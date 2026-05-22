@@ -69,19 +69,6 @@ export default function AdminConsole() {
     setError(null);
 
     try {
-      if (accessToken.startsWith("mock-")) {
-        const role = accessToken.includes("student") ? "student" : "lecturer";
-        setUser({ 
-          id: "mock", 
-          email: role === "student" ? "18223081@mahasiswa.itb.ac.id" : "aymar@itb.ac.id", 
-          role: role, 
-          name: role === "student" ? "Aliya Harta Ary Utama" : "M. Aymar Barkhaya" 
-        });
-        setToken(accessToken);
-        setLoading(false);
-        return;
-      }
-
       const session = await apiRequest<SessionUser>("auth/me", {
         accessToken,
         onAccessTokenRotated: setToken,
@@ -122,7 +109,6 @@ export default function AdminConsole() {
     return (
       <LoginScreen
         onLoginSuccess={handleLoginSuccess}
-        onNavigateToRegister={() => alert("Registration not implemented yet")}
       />
     );
   }
@@ -132,7 +118,7 @@ export default function AdminConsole() {
     if (activeTab === "rincian-kelas") {
       return (
         <RincianKelasMahasiswa 
-          user={{ name: user.name || "Aliya", email: user.email || "" }}
+          user={{ name: user.account_name || "Aliya", email: user.email || "" }}
           activeTab="kelas"
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
@@ -153,7 +139,7 @@ export default function AdminConsole() {
     if (activeTab === "rincian") {
       return (
         <RincianMahasiswa 
-          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          user={{ name: user.account_name || "Aymar", email: user.email || "" }}
           activeTab="dashboard" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
@@ -163,7 +149,7 @@ export default function AdminConsole() {
     if (activeTab === "kelas") {
       return (
         <ClassesDosen 
-          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          user={{ name: user.account_name || "Aymar", email: user.email || "" }}
           activeTab="kelas" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
@@ -173,7 +159,7 @@ export default function AdminConsole() {
     if (activeTab === "profil") {
       return (
         <ProfileDosen 
-          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          user={{ name: user.account_name || "Aymar", email: user.email || "" }}
           activeTab="profil" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
@@ -182,7 +168,7 @@ export default function AdminConsole() {
     }
     return (
       <HomeScreenDosen 
-        user={{ name: user.name || "Aymar", email: user.email || "" }}
+        user={{ name: user.account_name || "Aymar", email: user.email || "" }}
         onLogout={handleLogout}
         activeTab={activeTab}
         onTabChange={(tab: any) => setActiveTab(tab)}

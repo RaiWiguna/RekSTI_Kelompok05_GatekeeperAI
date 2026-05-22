@@ -37,7 +37,7 @@ export class EnrollmentsService {
             select: {
               id: true,
               nim: true,
-              name: true,
+              fullName: true,
             },
           },
           class: {
@@ -67,7 +67,7 @@ export class EnrollmentsService {
           select: {
             id: true,
             nim: true,
-            name: true,
+            fullName: true,
           },
         },
         class: {
@@ -97,7 +97,7 @@ export class EnrollmentsService {
             select: {
               id: true,
               nim: true,
-              name: true,
+              fullName: true,
             },
           },
           class: {
@@ -133,7 +133,7 @@ export class EnrollmentsService {
             select: {
               id: true,
               nim: true,
-              name: true,
+              fullName: true,
             },
           },
           class: {
@@ -163,7 +163,7 @@ export class EnrollmentsService {
             select: {
               id: true,
               nim: true,
-              name: true,
+              fullName: true,
             },
           },
           class: {
@@ -194,7 +194,7 @@ function mapEnrollment(enrollment: {
   student: {
     id: string;
     nim: string;
-    name: string;
+    fullName: string;
   };
   class: {
     id: string;
@@ -208,7 +208,11 @@ function mapEnrollment(enrollment: {
     student_id: enrollment.studentId,
     class_id: enrollment.classId,
     status: fromEnrollmentStatus(enrollment.status),
-    student: enrollment.student,
+    student: {
+      id: enrollment.student.id,
+      nim: enrollment.student.nim,
+      full_name: enrollment.student.fullName,
+    },
     class: {
       id: enrollment.class.id,
       class_code: enrollment.class.classCode,

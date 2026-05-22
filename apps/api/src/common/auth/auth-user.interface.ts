@@ -3,6 +3,6 @@ import type { UserRole } from "@gatekeeper/shared-types";
 export interface AuthUser {
   userId: string;
   email: string;
-  name: string;
+  accountName: string;
   role: Extract<UserRole, "student" | "admin" | "lecturer">;
 }

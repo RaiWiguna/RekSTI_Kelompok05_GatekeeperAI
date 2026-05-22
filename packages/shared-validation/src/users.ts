@@ -13,7 +13,7 @@ export const linkedAccountStateSchema = z.enum(["linked", "unlinked"]);
 export const createUserAccountSchema = z
   .object({
     role: manageableUserRoleSchema.default("lecturer"),
-    name: z.string().trim().min(3).max(120),
+    account_name: z.string().trim().min(3).max(120),
     email: z.string().trim().email(),
     password: z.string().min(8).max(72),
     status: activeInactiveStatusSchema.default("active"),
@@ -47,7 +47,7 @@ export const createUserAccountSchema = z
   });
 
 export const updateUserAccountSchema = z.object({
-  name: z.string().trim().min(3).max(120).optional(),
+  account_name: z.string().trim().min(3).max(120).optional(),
   email: z.string().trim().email().optional(),
   status: activeInactiveStatusSchema.optional(),
   student_id: uuidSchema.nullable().optional(),

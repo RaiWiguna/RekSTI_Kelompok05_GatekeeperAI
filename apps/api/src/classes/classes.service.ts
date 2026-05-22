@@ -41,7 +41,7 @@ export class ClassesService {
             select: {
               id: true,
               nidn: true,
-              name: true,
+              fullName: true,
             },
           },
           room: {
@@ -83,7 +83,7 @@ export class ClassesService {
           select: {
             id: true,
             nidn: true,
-            name: true,
+            fullName: true,
           },
         },
         room: {
@@ -128,7 +128,7 @@ export class ClassesService {
             select: {
               id: true,
               nidn: true,
-              name: true,
+              fullName: true,
             },
           },
           room: {
@@ -179,7 +179,7 @@ export class ClassesService {
             select: {
               id: true,
               nidn: true,
-              name: true,
+              fullName: true,
             },
           },
           room: {
@@ -220,7 +220,7 @@ export class ClassesService {
             select: {
               id: true,
               nidn: true,
-              name: true,
+              fullName: true,
             },
           },
           room: {
@@ -264,7 +264,7 @@ function mapClass(classItem: {
   lecturer: {
     id: string;
     nidn: string;
-    name: string;
+    fullName: string;
   };
   room: {
     id: string;
@@ -285,7 +285,11 @@ function mapClass(classItem: {
     semester: classItem.semester,
     academic_year: classItem.academicYear,
     course: classItem.course,
-    lecturer: classItem.lecturer,
+    lecturer: {
+      id: classItem.lecturer.id,
+      nidn: classItem.lecturer.nidn,
+      full_name: classItem.lecturer.fullName,
+    },
     room: classItem.room,
     schedules_count: classItem._count.schedules,
     enrollments_count: classItem._count.enrollments,

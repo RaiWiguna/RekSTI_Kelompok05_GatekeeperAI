@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
@@ -40,24 +41,24 @@ export function LoginScreen({
 
   const handleLogin = async () => {
     if (!email || !password) {
-      alert("Please fill in all fields");
+      Alert.alert("Please fill in all fields");
       return;
     }
 
     if (!selectedRole) {
-      alert("Please select your role");
+      Alert.alert("Please select your role");
       return;
     }
 
     if (password.length < 6) {
-      alert("Password must be at least 6 characters");
+      Alert.alert("Password must be at least 6 characters");
       return;
     }
 
     setIsLoading(true);
     
     // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise<void>(resolve => setTimeout(resolve, 500));
     
     // Mock login - any email/password works for UI testing
     const mockSession: Session = {

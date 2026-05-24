@@ -75,7 +75,7 @@ export default function App() {
       <RegisterScreen
         onRegister={async (email: string, password: string, name: string) => {
           // Simulate network delay
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise<void>(resolve => setTimeout(resolve, 500));
           
           // Mock registration - any credentials work for UI testing
           const mockSession: Session = {

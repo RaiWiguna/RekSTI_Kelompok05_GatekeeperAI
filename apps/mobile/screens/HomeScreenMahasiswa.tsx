@@ -1,17 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   StyleSheet,
   Text,
   View,
   Image,
-  SafeAreaView,
   ScrollView,
   Pressable,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { ClassListScreen } from "./ClassesMahasiswa";
+import { ProfileScreen } from "./ProfileMahasiswa";
+import { NotificationScreen } from "./NotificationScreen"; 
 
+// --- DATA MOCKUP ---
 const TODAY_COURSES = [
   {
     id: 1,
@@ -43,8 +45,31 @@ const TODAY_COURSES = [
   },
 ];
 
-function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () => void }) {
-  // Fungsi untuk mendapatkan tanggal saat ini dalam format Indonesia
+// --- KOMPONEN HOME SCREEN CONTENT ---
+function HomeScreenContent({ 
+  onNavigateToClasses, 
+  onNavigateToProfile,
+  onNavigateToNotifications
+}: { 
+  onNavigateToClasses: () => void; 
+  onNavigateToProfile: () => void;
+  onNavigateToNotifications: () => void;
+}) {
+  const [timeLeft, setTimeLeft] = useState(3600);
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+    const intervalId = setInterval(() => {
+      setTimeLeft((prevTime) => prevTime - 1);
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [timeLeft]);
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const formattedMinutes = minutes.toString().padStart(2, "0");
+  const formattedSeconds = seconds.toString().padStart(2, "0");
+
   const getCurrentDate = () => {
     const options: Intl.DateTimeFormatOptions = { 
       weekday: 'long', 
@@ -65,14 +90,11 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* HEADER SECTION */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.userInfo}>
               <Image
-                source={{
-                  uri: "https://ui-avatars.com/api/?name=Aliya&background=F44336&color=fff&rounded=true&bold=true",
-                }}
+                source={require('../assets/woman.png')}
                 style={styles.avatar}
               />
               <View>
@@ -82,21 +104,20 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
                 </Text>
               </View>
             </View>
-            <Pressable style={styles.bellIcon}>
+            <Pressable style={styles.bellIcon} onPress={onNavigateToNotifications}>
               <Feather name="bell" size={24} color="#F6E4C8" />
             </Pressable>
           </View>
         </View>
 
-        {/* ACTIVE CLASS CARD */}
         <View style={styles.activeCard}>
           <View style={styles.timerBadgeContainer}>
             <View style={styles.timerBox}>
-              <Text style={styles.timerNumber}>09</Text>
+              <Text style={styles.timerNumber}>{formattedMinutes}</Text>
               <Text style={styles.timerLabel}>Menit</Text>
             </View>
             <View style={styles.timerBox}>
-              <Text style={styles.timerNumber}>45</Text>
+              <Text style={styles.timerNumber}>{formattedSeconds}</Text>
               <Text style={styles.timerLabel}>Detik</Text>
             </View>
           </View>
@@ -111,7 +132,6 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
           </View>
 
           <View style={styles.punchContainer}>
-            {/* Arrive Card dengan Tanggal Otomatis */}
             <View style={styles.punchCard}>
               <View style={styles.punchHeader}>
                 <Text style={styles.punchTitle}>Arrive</Text>
@@ -121,7 +141,6 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
               <Text style={styles.punchDate}>{currentDate}</Text>
             </View>
 
-            {/* Depart Card dengan Tanggal Otomatis */}
             <View style={styles.punchCard}>
               <View style={styles.punchHeader}>
                 <Text style={styles.punchTitle}>Depart</Text>
@@ -133,7 +152,6 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
           </View>
         </View>
 
-        {/* TODAY'S COURSE LIST */}
         <View style={styles.courseListContainer}>
           <Text style={styles.sectionTitle}>Today’s Course</Text>
 
@@ -156,7 +174,6 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* BOTTOM NAVIGATION */}
       <View style={styles.bottomNav}>
         <Pressable style={styles.navItemActive}>
           <View style={styles.navIconActiveBg}>
@@ -166,7 +183,7 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
         <Pressable style={styles.navItem} onPress={onNavigateToClasses}>
           <Ionicons name="document-text-outline" size={32} color="#FDEFD3" />
         </Pressable>
-        <Pressable style={styles.navItem}>
+        <Pressable style={styles.navItem} onPress={onNavigateToProfile}>
           <Ionicons name="person-circle-outline" size={34} color="#FDEFD3" />
         </Pressable>
       </View>
@@ -174,32 +191,87 @@ function HomeScreenContent({ onNavigateToClasses }: { onNavigateToClasses: () =>
   );
 }
 
-function ClassesMahasiswaWrapper({ onNavigateHome }: { onNavigateHome: () => void }) {
+// --- WRAPPER UNTUK HALAMAN CLASSES ---
+function ClassesMahasiswaWrapper({ 
+  onNavigateHome, 
+  onNavigateToProfile,
+  onNavigateToNotifications 
+}: { 
+  onNavigateHome: () => void; 
+  onNavigateToProfile: () => void;
+  onNavigateToNotifications: () => void;
+}) {
   return (
     <View style={styles.container}>
-      <ClassListScreen onNavigateHome={onNavigateHome} />
+      <ClassListScreen 
+        onNavigateHome={onNavigateHome} 
+        onNavigateToProfile={onNavigateToProfile} 
+        onNavigateToNotifications={onNavigateToNotifications} 
+      />
     </View>
   );
 }
 
-export function HomeScreen({ onLogout }: { onLogout: () => void }) {
-  const [currentScreen, setCurrentScreen] = useState<"home" | "classes">("home");
+// --- WRAPPER UNTUK HALAMAN PROFILE ---
+function ProfileWrapper({ onNavigateHome, onNavigateToClasses, onLogout }: { onNavigateHome: () => void; onNavigateToClasses: () => void; onLogout: () => void }) {
+  return (
+    <ProfileScreen onNavigateHome={onNavigateHome} onNavigateToClasses={onNavigateToClasses} onLogout={onLogout} />
+  );
+}
 
-  if (currentScreen === "classes") {
-    return <ClassesMahasiswaWrapper onNavigateHome={() => setCurrentScreen("home")} />;
+// --- MAIN EXPORT & STATE MANAGER ---
+export function HomeScreen({ onLogout }: { onLogout: () => void }) {
+  const [currentScreen, setCurrentScreen] = useState<"home" | "classes" | "profile" | "notifications">("home");
+  
+  // State baru untuk menyimpan riwayat halaman sebelum membuka notifikasi
+  const [previousScreen, setPreviousScreen] = useState<"home" | "classes" | "profile">("home");
+
+  // Fungsi interseptor navigasi untuk mencatat posisi halaman asal
+  const goToNotifications = () => {
+    if (currentScreen !== "notifications") {
+      setPreviousScreen(currentScreen); // Rekam halaman saat ini (home / classes / profile)
+    }
+    setCurrentScreen("notifications");
+  };
+
+  // Kondisi render halaman Notifikasi
+  if (currentScreen === "notifications") {
+    // onNavigateBack sekarang akan mengarahkan kembali ke state yang disimpan di previousScreen
+    return <NotificationScreen onNavigateBack={() => setCurrentScreen(previousScreen)} />;
   }
 
-  return <HomeScreenContent onNavigateToClasses={() => setCurrentScreen("classes")} />;
+  if (currentScreen === "classes") {
+    return (
+      <ClassesMahasiswaWrapper 
+        onNavigateHome={() => setCurrentScreen("home")} 
+        onNavigateToProfile={() => setCurrentScreen("profile")}
+        onNavigateToNotifications={goToNotifications} // Gunakan fungsi interseptor
+      />
+    );
+  }
+
+  if (currentScreen === "profile") {
+    return (
+      <ProfileWrapper 
+        onNavigateHome={() => setCurrentScreen("home")} 
+        onNavigateToClasses={() => setCurrentScreen("classes")}
+        onLogout={onLogout}
+      />
+    );
+  }
+
+  return (
+    <HomeScreenContent 
+      onNavigateToClasses={() => setCurrentScreen("classes")} 
+      onNavigateToProfile={() => setCurrentScreen("profile")}
+      onNavigateToNotifications={goToNotifications} // Gunakan fungsi interseptor
+    />
+  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  scrollContent: { flexGrow: 1 },
   header: {
     backgroundColor: "#112D4E",
     paddingTop: 60,
@@ -208,39 +280,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
   },
-  headerTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-    borderWidth: 2,
-    borderColor: "#FACC15",
-  },
-  greeting: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#F6E4C8",
-    marginBottom: 4,
-  },
-  subGreeting: {
-    fontSize: 12,
-    color: "#F6E4C8",
-    marginRight: 10,
-    opacity: 0.9,
-  },
-  bellIcon: {
-    padding: 8,
-  },
+  headerTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  userInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
+  avatar: { width: 60, height: 60, borderRadius: 30, marginRight: 16, borderColor: "#FACC15" },
+  greeting: { fontSize: 20, fontWeight: "bold", color: "#F6E4C8", marginBottom: 4 },
+  subGreeting: { fontSize: 12, color: "#F6E4C8", marginRight: 10, opacity: 0.9 },
+  bellIcon: { padding: 8 },
   activeCard: {
     backgroundColor: "#DBEAFE",
     marginHorizontal: 24,
@@ -253,90 +298,21 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  timerBadgeContainer: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 4,
-    marginBottom: 12,
-  },
-  timerBox: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignItems: "center",
-    minWidth: 40,
-  },
-  timerNumber: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  timerLabel: {
-    fontSize: 8,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  activeClassInfo: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  activeCourseTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#112D4E",
-    textAlign: "center",
-    marginBottom: 4,
-  },
-  activeCourseLecturer: {
-    fontSize: 12,
-    color: "#3B82F6",
-    textAlign: "center",
-  },
-  punchContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  punchCard: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-  },
-  punchHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 16,
-  },
-  punchTitle: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#112D4E",
-  },
-  punchTime: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 16,
-  },
-  punchDate: {
-    fontSize: 10,
-    color: "#64748B",
-    textAlign: 'center',
-  },
-  courseListContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 30, 
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 16,
-  },
+  timerBadgeContainer: { flexDirection: "row", justifyContent: "flex-end", gap: 4, marginBottom: 12 },
+  timerBox: { backgroundColor: "#FFFFFF", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignItems: "center", minWidth: 40 },
+  timerNumber: { fontSize: 14, fontWeight: "bold", color: "#000" },
+  timerLabel: { fontSize: 8, fontWeight: "bold", color: "#000" },
+  activeClassInfo: { alignItems: "center", marginBottom: 20 },
+  activeCourseTitle: { fontSize: 18, fontWeight: "900", color: "#112D4E", textAlign: "center", marginBottom: 4 },
+  activeCourseLecturer: { fontSize: 12, color: "#3B82F6", textAlign: "center" },
+  punchContainer: { flexDirection: "row", justifyContent: "space-between", gap: 12 },
+  punchCard: { flex: 1, backgroundColor: "#FFFFFF", borderRadius: 16, padding: 16, alignItems: "center" },
+  punchHeader: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, marginBottom: 16 },
+  punchTitle: { fontSize: 14, fontWeight: "bold", color: "#112D4E" },
+  punchTime: { fontSize: 24, fontWeight: "bold", color: "#000", marginBottom: 16 },
+  punchDate: { fontSize: 10, color: "#64748B", textAlign: 'center' },
+  courseListContainer: { paddingHorizontal: 24, paddingTop: 30 },
+  sectionTitle: { fontSize: 20, fontWeight: "bold", color: "#000", marginBottom: 16 },
   courseListItem: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -348,35 +324,12 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginBottom: 12,
   },
-  courseNameText: {
-    fontSize: 13,
-    color: "#334155",
-    flex: 1,
-    marginRight: 10,
-  },
-  courseCodeText: {
-    fontWeight: "bold",
-    color: "#112D4E",
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    minWidth: 80,
-  },
-  statusDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#000",
-  },
-  bottomSpacer: {
-    height: 120,
-  },
+  courseNameText: { fontSize: 13, color: "#334155", flex: 1, marginRight: 10 },
+  courseCodeText: { fontWeight: "bold", color: "#112D4E" },
+  statusBadge: { flexDirection: "row", alignItems: "center", gap: 6, minWidth: 80 },
+  statusDot: { width: 14, height: 14, borderRadius: 7 },
+  statusText: { fontSize: 12, fontWeight: "bold", color: "#000" },
+  bottomSpacer: { height: 120 },
   bottomNav: {
     position: "absolute",
     bottom: 0,
@@ -387,28 +340,12 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 36,
     borderTopRightRadius: 36,
     flexDirection: "row",
-    justifyContent: "space-between", // Meratakan jarak
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
-  navItem: {
-    flex: 1, // Bungkus mengambil 1 bagian ruang
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navItemActive: {
-    flex: 1, // Bungkus mengambil 1 bagian ruang
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: -40, // Mengangkat tombol ke atas
-  },
-  navIconActiveBg: {
-    width: 72, // Lebar pasti
-    height: 72, // Tinggi pasti
-    borderRadius: 36, // Setengah dari 72 agar jadi lingkaran sempurna
-    backgroundColor: "#93C5FD",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  navItem: { flex: 1, alignItems: "center", justifyContent: "center" },
+  navItemActive: { flex: 1, alignItems: "center", justifyContent: "center", marginTop: -40 },
+  navIconActiveBg: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#93C5FD", justifyContent: "center", alignItems: "center" },
 });

@@ -7,9 +7,10 @@ type ProfileMahasiswaProps = {
   onLogout: () => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onNavigateToNotifications: () => void;
 };
 
-export function ProfileMahasiswa({ onLogout, activeTab, onTabChange }: ProfileMahasiswaProps) {
+export function ProfileMahasiswa({ onLogout, activeTab, onTabChange, onNavigateToNotifications }: ProfileMahasiswaProps) {
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -17,6 +18,10 @@ export function ProfileMahasiswa({ onLogout, activeTab, onTabChange }: ProfileMa
           display: flex;
           min-height: 100vh;
           background-color: #f8fafc;
+          font-family: 'Inter', sans-serif;
+        }
+
+        .dashboard-wrapper :global(*) {
           font-family: 'Inter', sans-serif;
         }
 
@@ -41,9 +46,24 @@ export function ProfileMahasiswa({ onLogout, activeTab, onTabChange }: ProfileMa
           display: flex;
           flex-direction: column;
           align-items: flex-start;
+          position: relative;
         }
 
-        .avatar-small {
+        .notification-btn-sidebar {
+          background: transparent;
+          color: white;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          position: absolute;
+          top: 0;
+          right: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .avatar {
           width: 80px;
           height: 80px;
           border-radius: 50%;
@@ -51,13 +71,13 @@ export function ProfileMahasiswa({ onLogout, activeTab, onTabChange }: ProfileMa
           margin-bottom: 16px;
         }
 
-        .profile-name-small {
+        .profile-name {
           font-size: 18px;
           font-weight: bold;
           margin-bottom: 4px;
         }
 
-        .profile-info-small {
+        .profile-info {
           font-size: 12px;
           color: #cbd5e1;
           opacity: 0.8;
@@ -76,14 +96,13 @@ export function ProfileMahasiswa({ onLogout, activeTab, onTabChange }: ProfileMa
           gap: 16px;
           cursor: pointer;
           transition: background 0.2s;
-          color: #fde4c8;
+          color: #fff;
           text-decoration: none;
         }
 
         .nav-item.active {
-          background: rgba(255, 255, 255, 0.2);
-          border-left: 4px solid #fde4c8;
-          color: #fff;
+          background-color: #93c5fd;
+          color: #112d4e;
         }
 
         .nav-text {
@@ -199,7 +218,7 @@ export function ProfileMahasiswa({ onLogout, activeTab, onTabChange }: ProfileMa
           .sidebar {
             width: 80px;
           }
-          .profile-name-small, .profile-info-small, .nav-text {
+          .profile-name, .profile-info, .nav-text {
             display: none;
           }
           .profile-section {
@@ -215,13 +234,16 @@ export function ProfileMahasiswa({ onLogout, activeTab, onTabChange }: ProfileMa
       {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="profile-section">
+          <button className="notification-btn-sidebar" onClick={onNavigateToNotifications}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
           <img 
             src="https://ui-avatars.com/api/?name=Aliya&background=F44336&color=fff&rounded=true&bold=true" 
             alt="Avatar" 
-            className="avatar-small" 
+            className="avatar" 
           />
-          <h2 className="profile-name-small">Halo, Aliya</h2>
-          <p className="profile-info-small">Sistem dan Teknologi Informasi - 2023</p>
+          <h2 className="profile-name">Halo, Aliya</h2>
+          <p className="profile-info">Sistem dan Teknologi Informasi - 2023</p>
         </div>
 
         <nav className="nav-menu">

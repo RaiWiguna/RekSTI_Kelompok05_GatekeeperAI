@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
@@ -82,54 +83,37 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setNotice(null);
 
     if (!email || !password) {
-      setNotice({
-        title: "Data belum lengkap",
-        message: "Silakan isi email dan password terlebih dahulu.",
-      });
+      Alert.alert("Please fill in all fields");
       return;
     }
 
     if (!selectedRole) {
-      setNotice({
-        title: "Role belum dipilih",
-        message: "Silakan pilih role Mahasiswa atau Dosen sebelum login.",
-      });
+      Alert.alert("Please select your role");
       return;
     }
 
     if (password.length < 6) {
-      setNotice({
-        title: "Password tidak valid",
-        message: "Password minimal 6 karakter.",
-      });
+      Alert.alert("Password must be at least 6 characters");
       return;
     }
 
     setIsLoading(true);
-
-    try {
-      const auth = await loginWithPassword(email.trim(), password);
-
-      if (auth.user.role !== selectedRole) {
-        setNotice({
-          title: "Role akun tidak sesuai",
-          message: `Akun anda terdaftar sebagai ${toRoleLabel(auth.user.role)}, bukan ${toRoleLabel(selectedRole)}.`,
-        });
-        return;
-      }
-
-      onLoginSuccess({
-        accessToken: auth.access_token,
-        refreshToken: auth.refresh_token,
-        user: auth.user,
-      });
-    } catch (error) {
-      const diagnostics = await diagnoseApiConnectivity();
-      console.error(buildLoginErrorMessage(error, diagnostics));
-      setNotice(mapLoginNotice(error, diagnostics));
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // Simulate network delay
+    await new Promise<void>(resolve => setTimeout(resolve, 500));
+    
+    // Mock login - any email/password works for UI testing
+    const mockSession: Session = {
+      accessToken: "mock_access_token_" + Math.random().toString(36).substr(2, 9),
+      refreshToken: "mock_refresh_token_" + Math.random().toString(36).substr(2, 9),
+      user: {
+        id: "user_" + Math.random().toString(36).substr(2, 9),
+        name: email.split("@")[0] || "User",
+        role: selectedRole,
+      },
+    };
+    
+    onLoginSuccess(mockSession);
   };
 
   return (

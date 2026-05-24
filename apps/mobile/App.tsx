@@ -84,6 +84,30 @@ export default function App() {
     return <OnboardingScreen onLogin={handleOnboardingComplete} />;
   }
 
+  if (appState === "register") {
+    return (
+      <RegisterScreen
+        onRegister={async (email: string, password: string, name: string) => {
+          // Simulate network delay
+          await new Promise<void>(resolve => setTimeout(resolve, 500));
+          
+          // Mock registration - any credentials work for UI testing
+          const mockSession: Session = {
+            accessToken: "mock_access_token_" + Math.random().toString(36).substr(2, 9),
+            refreshToken: "mock_refresh_token_" + Math.random().toString(36).substr(2, 9),
+            user: {
+              id: "user_" + Math.random().toString(36).substr(2, 9),
+              name: name || "User",
+              role: "student",
+            },
+          };
+          handleRegisterSuccess(mockSession);
+        }}
+        onNavigateToLogin={handleNavigateToLogin}
+      />
+    );
+  }
+
   if (appState === "login") {
     return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
   }

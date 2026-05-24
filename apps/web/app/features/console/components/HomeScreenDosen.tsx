@@ -16,6 +16,7 @@ type HomeScreenDosenProps = {
   lecturerTodayClasses: LecturerTodayClass[];
   lecturerManagedClasses: LecturerManagedClass[];
   lecturerRoster: LecturerClassRoster | null;
+  onNavigateToNotifications: () => void;
 };
 
 export function HomeScreenDosen({ 
@@ -24,11 +25,10 @@ export function HomeScreenDosen({
   activeTab, 
   onTabChange,
   lecturerTodayClasses,
-  lecturerRoster 
+  onNavigateToNotifications 
 }: HomeScreenDosenProps) {
   const [timer, setTimer] = useState("00:00:00");
 
-  // Ambil kelas pertama hari ini sebagai contoh display
   const currentClass = lecturerTodayClasses[0] || {
     courseCode: "II3230",
     courseName: "Keamanan Informasi",
@@ -44,6 +44,10 @@ export function HomeScreenDosen({
           display: flex;
           min-height: 100vh;
           background-color: #f8fafc;
+          font-family: 'Inter', sans-serif;
+        }
+
+        .dashboard-wrapper :global(*) {
           font-family: 'Inter', sans-serif;
         }
 
@@ -65,6 +69,24 @@ export function HomeScreenDosen({
         .profile-section {
           padding: 0 30px;
           margin-bottom: 40px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          position: relative;
+        }
+
+        .notification-btn-sidebar {
+          background: transparent;
+          color: white;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          position: absolute;
+          top: 0;
+          right: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .avatar {
@@ -100,13 +122,13 @@ export function HomeScreenDosen({
           gap: 16px;
           cursor: pointer;
           transition: background 0.2s;
-          color: #fde4c8;
+          color: #fff;
+          text-decoration: none;
         }
 
         .nav-item.active {
-          background: rgba(255, 255, 255, 0.2);
-          border-left: 4px solid #fde4c8;
-          color: #fff;
+          background-color: #93c5fd;
+          color: #112d4e;
         }
 
         .nav-text {
@@ -127,7 +149,6 @@ export function HomeScreenDosen({
           justify-content: flex-end;
           align-items: center;
           margin-bottom: 40px;
-          gap: 20px;
         }
 
         .brand-logo-section {
@@ -287,11 +308,22 @@ export function HomeScreenDosen({
           .dashboard-grid { grid-template-columns: 1fr; }
           .sidebar { width: 80px; }
           .profile-name, .profile-info, .nav-text { display: none; }
+          .profile-section {
+            padding: 0;
+            align-items: center;
+          }
+          .main-content {
+            padding: 20px;
+          }
         }
       `}</style>
 
+      {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="profile-section">
+          <button className="notification-btn-sidebar" onClick={onNavigateToNotifications}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </button>
           <img 
             src={`https://ui-avatars.com/api/?name=${user.name}&background=112d4e&color=fff&rounded=true&bold=true`} 
             alt="Avatar" 
@@ -332,8 +364,8 @@ export function HomeScreenDosen({
           <div className="today-class-container">
             <h2 className="section-title">Today's Class</h2>
             <div className="class-header">
-              <div className="class-code-name">{"courseCode" in currentClass ? currentClass.courseCode : "II3230"} {currentClass.courseName}</div>
-              <div className="class-details">{"className" in currentClass ? currentClass.className : "Kelas 01"}</div>
+              <div className="class-code-name">{currentClass.courseCode} {currentClass.courseName}</div>
+              <div className="class-details">{currentClass.className}</div>
             </div>
 
             <div className="stats-grid">

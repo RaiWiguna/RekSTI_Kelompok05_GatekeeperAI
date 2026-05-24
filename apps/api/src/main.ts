@@ -11,11 +11,7 @@ const logger = new Logger("Bootstrap");
 
 async function bootstrap() {
   const port = Number(appEnv.API_PORT);
-  const corsOrigins = [
-    "http://localhost:3000",
-    `http://127.0.0.1:${appEnv.WEB_PORT}`,
-    `http://localhost:${appEnv.WEB_PORT}`,
-  ];
+  const corsOrigins = parseCorsOrigins(appEnv.CORS_ORIGINS, appEnv.WEB_PORT);
 
   try {
     const app = await NestFactory.create(AppModule);
@@ -41,6 +37,23 @@ async function bootstrap() {
     logStartupError(error, port);
     throw error;
   }
+}
+
+function parseCorsOrigins(value: string, webPort: string) {
+  const defaults = new Set<string>([
+    "http://localhost:3000",
+    `http://127.0.0.1:${webPort}`,
+    `http://localhost:${webPort}`,
+  ]);
+
+  for (const entry of value.split(",")) {
+    const normalized = entry.trim();
+    if (normalized.length > 0) {
+      defaults.add(normalized);
+    }
+  }
+
+  return Array.from(defaults);
 }
 
 void bootstrap().catch(() => {

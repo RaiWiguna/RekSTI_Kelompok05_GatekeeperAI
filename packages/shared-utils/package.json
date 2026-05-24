@@ -2,7 +2,8 @@
   "name": "@gatekeeper/shared-utils",
   "version": "0.1.0",
   "private": true,
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "echo lint shared-utils",

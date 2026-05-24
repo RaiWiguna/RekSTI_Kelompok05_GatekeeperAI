@@ -5,6 +5,9 @@ export const runtimeEnvSchema = z.object({
   API_PORT: z.string().default("3001"),
   IOT_GATEWAY_PORT: z.string().default("3002"),
   WEB_PORT: z.string().default("3000"),
+  CORS_ORIGINS: z
+    .string()
+    .default("http://localhost:3000,http://127.0.0.1:3000"),
 });
 
 export const databaseEnvSchema = z.object({

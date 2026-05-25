@@ -11,12 +11,61 @@ from contextlib import asynccontextmanager
 # Global model
 model = None
 MODEL_PATH = os.getenv("MODEL_PATH", "./models/model.tflite")
+CLASS_LABELS = []  # Will load from label.txt if available
+
+
+def load_class_labels():
+    """Load class labels from label.txt or labels.txt (Teachable Machine format)"""
+    global CLASS_LABELS
+    
+    # Try both names
+    label_paths = [
+        os.path.join(os.path.dirname(MODEL_PATH), "labels.txt"),
+        os.path.join(os.path.dirname(MODEL_PATH), "label.txt"),
+    ]
+    
+    for label_path in label_paths:
+        if os.path.exists(label_path):
+            try:
+                with open(label_path, "r") as f:
+                    labels = []
+                    for line in f.readlines():
+                        line = line.strip()
+                        if line:
+                            # Handle Teachable Machine format: "0 Aliya" or just "Aliya"
+                            parts = line.split(" ", 1)
+                            if len(parts) == 2 and parts[0].isdigit():
+                                # Format: "0 Aliya"
+                                labels.append(parts[1])
+                            else:
+                                # Format: just "Aliya"
+                                labels.append(line)
+                    
+                    CLASS_LABELS = labels
+                    print(f"Loaded {len(labels)} class labels from {label_path}")
+                    print(f"Labels: {labels}")
+                    return True
+            except Exception as e:
+                print(f"Error loading class labels from {label_path}: {e}")
+    
+    print("No label.txt or labels.txt found - using generic class names")
+    return False
+
+
+def get_class_name(index: int) -> str:
+    """Get class name by index, using loaded labels if available"""
+    if index < len(CLASS_LABELS):
+        return CLASS_LABELS[index]
+    return f"class_{index}"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load model on startup, cleanup on shutdown"""
     global model
+    # Load class labels first
+    load_class_labels()
+    
     try:
         if os.path.exists(MODEL_PATH):
             print(f"Loading model from {MODEL_PATH}")
@@ -70,18 +119,20 @@ def health() -> dict:
 @app.post("/inference/detect")
 async def detect_face(image: UploadFile = File(...)) -> JSONResponse:
     """
-    Detect faces in the provided image using the trained model.
+    Identify which person is in the image using the trained model.
     
     Expected response format:
     {
         "success": true,
-        "detections": [
-            {
-                "class": "recognized_person",
-                "confidence": 0.95,
-                "bbox": [x1, y1, x2, y2]  // if available
-            }
-        ]
+        "result": {
+            "identified_person": "class_0",  // person A, B, C, etc.
+            "confidence": 0.95,
+            "all_classes": [
+                {"class": "class_0", "confidence": 0.95},
+                {"class": "class_1", "confidence": 0.04},
+                {"class": "class_2", "confidence": 0.01}
+            ]
+        }
     }
     """
     if model is None:
@@ -97,13 +148,13 @@ async def detect_face(image: UploadFile = File(...)) -> JSONResponse:
         
         # Run inference
         if isinstance(model, tf.lite.Interpreter):
-            predictions = _inference_tflite(image_array)
+            result = _inference_tflite(image_array)
         else:
-            predictions = _inference_savedmodel(image_array)
+            result = _inference_savedmodel(image_array)
         
         return JSONResponse({
             "success": True,
-            "detections": predictions,
+            "result": result,
             "timestamp": str(np.datetime64('now'))
         })
         
@@ -120,7 +171,7 @@ async def detect_face(image: UploadFile = File(...)) -> JSONResponse:
 @app.post("/inference/detect-base64")
 async def detect_face_base64(data: dict) -> JSONResponse:
     """
-    Detect faces in base64 encoded image.
+    Identify person in base64 encoded image.
     Expected input: {"image": "base64_encoded_image"}
     """
     if model is None:
@@ -139,13 +190,13 @@ async def detect_face_base64(data: dict) -> JSONResponse:
         
         # Run inference
         if isinstance(model, tf.lite.Interpreter):
-            predictions = _inference_tflite(image_array)
+            result = _inference_tflite(image_array)
         else:
-            predictions = _inference_savedmodel(image_array)
+            result = _inference_savedmodel(image_array)
         
         return JSONResponse({
             "success": True,
-            "detections": predictions,
+            "result": result,
             "timestamp": str(np.datetime64('now'))
         })
         
@@ -184,8 +235,8 @@ async def reload_model() -> JSONResponse:
         )
 
 
-def _inference_savedmodel(image_array: np.ndarray) -> list:
-    """Run inference using SavedModel"""
+def _inference_savedmodel(image_array: np.ndarray) -> dict:
+    """Run inference using SavedModel (Keras/SavedModel format)"""
     # Normalize image to [0, 1]
     if image_array.max() > 1:
         image_array = image_array / 255.0
@@ -201,23 +252,29 @@ def _inference_savedmodel(image_array: np.ndarray) -> list:
     # Run prediction
     predictions = model.predict(image_batch, verbose=0)
     
-    # Parse predictions
-    class_names = ["face_detected", "no_face"]  # Adjust based on your model classes
-    results = []
+    # Parse predictions - return best match + all scores
+    confidence_scores = predictions[0]
+    best_idx = np.argmax(confidence_scores)
+    best_confidence = float(confidence_scores[best_idx])
     
-    for idx, confidence in enumerate(predictions[0]):
-        confidence_val = float(confidence)
-        if confidence_val > 0.5:  # Only return detections > 50% confidence
-            results.append({
-                "class": class_names[idx] if idx < len(class_names) else f"class_{idx}",
-                "confidence": confidence_val
-            })
+    # Build detailed results using class labels
+    all_scores = [
+        {
+            "class": get_class_name(idx),
+            "confidence": float(confidence_scores[idx])
+        }
+        for idx in range(len(confidence_scores))
+    ]
     
-    return results
+    return {
+        "identified_person": get_class_name(best_idx),
+        "confidence": best_confidence,
+        "all_classes": all_scores
+    }
 
 
-def _inference_tflite(image_array: np.ndarray) -> list:
-    """Run inference using TensorFlow Lite"""
+def _inference_tflite(image_array: np.ndarray) -> dict:
+    """Run inference using TensorFlow Lite (Quantized model)"""
     # Get input details
     input_details = model.get_input_details()
     output_details = model.get_output_details()
@@ -238,17 +295,23 @@ def _inference_tflite(image_array: np.ndarray) -> list:
     # Get output
     output_data = model.get_tensor(output_details[0]['index'])
     
-    # Parse results
-    class_names = ["face_detected", "no_face"]
-    results = []
+    # Parse results - return best match + all scores
+    confidence_scores = output_data[0]
+    best_idx = np.argmax(confidence_scores)
+    best_confidence = float(confidence_scores[best_idx])
     
-    for idx, confidence in enumerate(output_data[0]):
-        confidence_val = float(confidence)
-        if confidence_val > 0.5:
-            results.append({
-                "class": class_names[idx] if idx < len(class_names) else f"class_{idx}",
-                "confidence": confidence_val
-            })
+    # Build detailed results using class labels
+    all_scores = [
+        {
+            "class": get_class_name(idx),
+            "confidence": float(confidence_scores[idx])
+        }
+        for idx in range(len(confidence_scores))
+    ]
     
-    return results
+    return {
+        "identified_person": get_class_name(best_idx),
+        "confidence": best_confidence,
+        "all_classes": all_scores
+    }
 

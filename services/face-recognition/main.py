@@ -223,12 +223,19 @@ def _inference_tflite(image_array: np.ndarray) -> list:
     output_details = model.get_output_details()
     
     # Prepare input
-    input_shape = input_details[0]['shape']
-    input_image = np.array(Image.fromarray(image_array).resize((input_shape[2], input_shape[1]))).astype(np.float32)
-    
-    if input_image.max() > 1:
-        input_image = input_image / 255.0
-    
+    input_shape = input_details[0]["shape"]
+    input_dtype = input_details[0]["dtype"]
+    input_image = np.array(
+        Image.fromarray(image_array).resize((input_shape[2], input_shape[1]))
+    )
+
+    if input_dtype == np.float32:
+        input_image = input_image.astype(np.float32)
+        if input_image.max() > 1:
+            input_image = input_image / 255.0
+    else:
+        input_image = input_image.astype(input_dtype)
+
     input_image = np.expand_dims(input_image, axis=0)
     
     # Set tensor and invoke
@@ -236,13 +243,32 @@ def _inference_tflite(image_array: np.ndarray) -> list:
     model.invoke()
     
     # Get output
-    output_data = model.get_tensor(output_details[0]['index'])
-    
-    # Parse results
+    output_data = model.get_tensor(output_details[0]["index"])
+
+    output_scale, output_zero_point = output_details[0].get("quantization", (0, 0))
+    if output_scale and output_scale > 0:
+        output_scores = (output_data.astype(np.float32) - output_zero_point) * output_scale
+    else:
+        output_scores = output_data.astype(np.float32)
+
+    # Parse results. Binary models often expose one score, while Teachable
+    # Machine image classifiers commonly expose one score per class.
+    if output_scores.shape[-1] == 1:
+        confidence_val = float(output_scores.reshape(-1)[0])
+        if confidence_val > 0.5:
+            return [{
+                "class": "face_detected",
+                "confidence": confidence_val
+            }]
+        return [{
+            "class": "no_face",
+            "confidence": 1.0 - confidence_val
+        }]
+
     class_names = ["face_detected", "no_face"]
     results = []
     
-    for idx, confidence in enumerate(output_data[0]):
+    for idx, confidence in enumerate(output_scores[0]):
         confidence_val = float(confidence)
         if confidence_val > 0.5:
             results.append({

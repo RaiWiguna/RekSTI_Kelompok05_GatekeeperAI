@@ -6,6 +6,12 @@ const statusOptions = [
   { value: "inactive", label: "Inactive" },
 ];
 
+const accountRoleOptions = [
+  { value: "student", label: "Student" },
+  { value: "lecturer", label: "Lecturer" },
+  { value: "admin", label: "Admin" },
+];
+
 const deviceStatusOptions = [
   { value: "online", label: "Online" },
   { value: "offline", label: "Offline" },
@@ -40,7 +46,7 @@ export const resourceOrder: ResourceKey[] = [
 ];
 
 export const resourceLabels: Record<ResourceKey, string> = {
-  users: "Lecturer Accounts",
+  users: "User Accounts",
   students: "Students",
   lecturers: "Lecturers",
   rooms: "Rooms",
@@ -54,21 +60,40 @@ export const resourceLabels: Record<ResourceKey, string> = {
 export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
   users: {
     key: "users",
-    title: "Lecturer Account Setup",
-    singularLabel: "Lecturer Account",
+    title: "User Account Setup",
+    singularLabel: "User Account",
     endpoint: "users",
-    query: { role: "lecturer" },
-    refreshTargets: ["users", "lecturers"],
-    buildPayload: (values) => ({
-      ...values,
-      role: "lecturer",
-    }),
-    emptyMessage: "No lecturer account records yet.",
+    refreshTargets: ["users", "students", "lecturers"],
+    buildPayload: (values) => {
+      const role = values.role || "student";
+      return {
+        role,
+        account_name: values.account_name,
+        email: values.email,
+        password: values.password,
+        status: values.status,
+        ...(role === "student" ? { student_id: values.student_id } : {}),
+        ...(role === "lecturer" ? { lecturer_id: values.lecturer_id } : {}),
+      };
+    },
+    emptyMessage: "No account records yet.",
     deleteActionLabel: "Deactivate",
     createTitle: "Create or Link Account",
-    updateTitle: "Update Lecturer Account",
-    formHelp: "Choose a lecturer first. If an account already exists, select it from the table to update identity, status, linked lecturer, or reset its password.",
+    updateTitle: "Update User Account",
+    formHelp: "Choose a role first. Student accounts can be linked to a student record, lecturer accounts can be linked to a lecturer record, and admin accounts are left unlinked.",
     fields: [
+      {
+        name: "role",
+        label: "Role",
+        type: "select",
+        options: accountRoleOptions,
+      },
+      {
+        name: "student_id",
+        label: "Student",
+        type: "select",
+        getOptions: (store) => buildOptions(store.students, "id", "full_name", "nim"),
+      },
       {
         name: "lecturer_id",
         label: "Lecturer",
@@ -86,9 +111,11 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
       },
     ],
     columns: [
+      { key: "role", label: "Role", render: (item) => text(item.role) },
       { key: "account_name", label: "Account Name", render: (item) => text(item.account_name) },
       { key: "email", label: "Email", render: (item) => text(item.email) },
       { key: "status", label: "Status", render: (item) => text(item.status) },
+      { key: "student", label: "Student", render: (item) => nestedText(item.student, "full_name") },
       { key: "lecturer", label: "Lecturer", render: (item) => nestedText(item.lecturer, "full_name") },
       { key: "updated_at", label: "Updated", render: (item) => shortDate(item.updated_at) },
     ],

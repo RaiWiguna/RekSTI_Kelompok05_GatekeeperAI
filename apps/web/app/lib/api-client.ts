@@ -44,7 +44,7 @@ type RefreshResponse = {
 type ApiRequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   accessToken?: string;
-  body?: Record<string, string>;
+  body?: Record<string, unknown>;
   query?: Record<string, string>;
   timeoutMs?: number;
   onAccessTokenRotated?: (accessToken: string) => void;
@@ -243,10 +243,10 @@ function isSuccessPayload<T>(payload: ApiExecutionResult<T>["payload"]): payload
   return "success" in payload && payload.success;
 }
 
-function cleanPayload(values: Record<string, string>) {
+function cleanPayload(values: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(values)
-      .filter(([, value]) => value.trim() !== "")
+      .filter(([, value]) => typeof value !== "string" || value.trim() !== "")
       .map(([key, value]) => [key, value]),
   );
 }

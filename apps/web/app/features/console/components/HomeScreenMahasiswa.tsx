@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
 import { apiRequest } from "../../../lib/api-client";
 
@@ -9,6 +9,8 @@ type TodayCourse = {
   attendance_status: "attended" | "absent" | "not_yet";
   check_in_at: string | null;
   check_out_at: string | null;
+  start_time: string;
+  end_time: string;
   course: {
     code: string;
     name: string;
@@ -16,6 +18,25 @@ type TodayCourse = {
   lecturer: {
     full_name: string;
   };
+};
+
+type FaceDetectionResult = {
+  class: string;
+  confidence: number;
+};
+
+type FaceDetectionResponse = {
+  success: boolean;
+  detections?: FaceDetectionResult[];
+  error?: string;
+};
+
+type CameraScanResponse = {
+  attendance_record_id: string;
+  status: "present" | "left" | "alpha";
+  source: "student_app";
+  verification_result: "matched";
+  face_probe_ref: string;
 };
 
 type HomeScreenMahasiswaProps = {
@@ -29,6 +50,16 @@ type HomeScreenMahasiswaProps = {
 export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabChange, onNavigateToNotifications }: HomeScreenMahasiswaProps) {
   const [todayCourses, setTodayCourses] = useState<TodayCourse[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<FaceDetectionResult | null>(null);
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -36,6 +67,7 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
       .then((items) => {
         if (isMounted) {
           setTodayCourses(items);
+          setSelectedScheduleId((current) => current ?? items.find((course) => course.attendance_status === "not_yet")?.schedule_id ?? items[0]?.schedule_id ?? null);
           setLoadError(null);
         }
       })
@@ -51,9 +83,21 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
   }, [accessToken]);
 
   const activeCourse = useMemo(
-    () => todayCourses.find((course) => course.attendance_status === "not_yet") ?? todayCourses[0],
-    [todayCourses],
+    () => todayCourses.find((course) => course.schedule_id === selectedScheduleId) ?? todayCourses.find((course) => course.attendance_status === "not_yet") ?? todayCourses[0],
+    [selectedScheduleId, todayCourses],
   );
+
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream]);
+
+  useEffect(() => {
+    return () => {
+      cameraStream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [cameraStream]);
   const getCurrentDate = () => {
     const options: Intl.DateTimeFormatOptions = { 
       weekday: 'long', 
@@ -65,6 +109,118 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
   };
 
   const currentDate = getCurrentDate();
+  const scanAction = activeCourse?.attendance_status === "attended" ? "check_out" : "check_in";
+
+  async function startCamera() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Browser tidak mendukung akses kamera.");
+      return;
+    }
+
+    setIsCameraStarting(true);
+    setCameraError(null);
+    setScanError(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+        audio: false,
+      });
+      setCameraStream((current) => {
+        current?.getTracks().forEach((track) => track.stop());
+        return stream;
+      });
+    } catch (error) {
+      setCameraError(error instanceof Error ? error.message : "Kamera tidak dapat diaktifkan.");
+    } finally {
+      setIsCameraStarting(false);
+    }
+  }
+
+  function stopCamera() {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }
+
+  async function submitCameraAttendance() {
+    if (!activeCourse) {
+      setScanError("Tidak ada jadwal yang bisa dipakai untuk absensi.");
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !cameraStream) {
+      setScanError("Aktifkan kamera terlebih dahulu.");
+      return;
+    }
+
+    setIsScanning(true);
+    setScanError(null);
+    setScanMessage(null);
+    setScanResult(null);
+
+    try {
+      const width = video.videoWidth || 640;
+      const height = video.videoHeight || 480;
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("Canvas capture tidak tersedia.");
+      }
+      context.drawImage(video, 0, 0, width, height);
+      const base64Image = canvas.toDataURL("image/jpeg", 0.82).split(",")[1] ?? "";
+
+      const detectionResponse = await fetch("/api/face-recognition/detect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ image: base64Image }),
+      });
+      const detection = (await detectionResponse.json()) as FaceDetectionResponse;
+      if (!detectionResponse.ok || !detection.success) {
+        throw new Error(detection.error ?? "Face recognition gagal memproses gambar.");
+      }
+
+      const matchedFace = detection.detections?.find((item) => item.class === "face_detected" && item.confidence >= 0.7) ?? null;
+      setScanResult(matchedFace);
+      if (!matchedFace) {
+        throw new Error("Wajah belum terkonfirmasi oleh model. Coba ulangi dengan pencahayaan lebih jelas.");
+      }
+
+      const now = new Date().toISOString();
+      const faceProbeRef = `web-local-camera:${activeCourse.schedule_id}:${Date.now()}:${matchedFace.confidence.toFixed(4)}`;
+      const attendance = await apiRequest<CameraScanResponse>("me/attendance/camera-scan", {
+        method: "POST",
+        accessToken,
+        body: {
+          schedule_id: activeCourse.schedule_id,
+          action: scanAction,
+          captured_at: now,
+          face_probe_ref: faceProbeRef,
+        },
+      });
+
+      setScanMessage(
+        `${scanAction === "check_in" ? "Check-in" : "Check-out"} berhasil. Status: ${attendance.status}. Confidence: ${(matchedFace.confidence * 100).toFixed(1)}%.`,
+      );
+      const refreshedCourses = await apiRequest<TodayCourse[]>("me/schedules/today", { accessToken });
+      setTodayCourses(refreshedCourses);
+    } catch (error) {
+      setScanError(error instanceof Error ? error.message : "Absensi kamera gagal.");
+    } finally {
+      setIsScanning(false);
+    }
+  }
 
   return (
     <div className="dashboard-wrapper">
@@ -208,6 +364,108 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 40px;
+        }
+
+        .attendance-camera {
+          grid-column: 1 / -1;
+          background: white;
+          border: 1px solid #dbeafe;
+          border-radius: 24px;
+          padding: 24px;
+          display: grid;
+          grid-template-columns: minmax(260px, 420px) 1fr;
+          gap: 24px;
+          box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        }
+
+        .camera-frame {
+          aspect-ratio: 4 / 3;
+          background: #0f172a;
+          border-radius: 18px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #e2e8f0;
+          min-height: 260px;
+        }
+
+        .camera-frame video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .camera-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          justify-content: center;
+        }
+
+        .camera-title {
+          font-size: 22px;
+          font-weight: 900;
+          color: #112d4e;
+          margin: 0;
+        }
+
+        .camera-meta {
+          color: #475569;
+          font-size: 14px;
+          line-height: 1.6;
+          margin: 0;
+        }
+
+        .camera-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+
+        .camera-button {
+          border: 0;
+          border-radius: 12px;
+          cursor: pointer;
+          font-weight: 800;
+          padding: 12px 16px;
+          background: #dbeafe;
+          color: #112d4e;
+        }
+
+        .camera-button.primary {
+          background: #112d4e;
+          color: white;
+        }
+
+        .camera-button:disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+        }
+
+        .schedule-select {
+          width: 100%;
+          max-width: 520px;
+          border: 1px solid #bfdbfe;
+          border-radius: 12px;
+          padding: 11px 12px;
+          color: #112d4e;
+          font-weight: 700;
+          background: #f8fafc;
+        }
+
+        .scan-status {
+          border-radius: 12px;
+          padding: 12px 14px;
+          font-size: 14px;
+          line-height: 1.5;
+          background: #ecfdf5;
+          color: #166534;
+        }
+
+        .scan-status.error {
+          background: #fef2f2;
+          color: #991b1b;
         }
 
         /* ACTIVE CLASS CARD */
@@ -361,6 +619,9 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
           .dashboard-grid {
             grid-template-columns: 1fr;
           }
+          .attendance-camera {
+            grid-template-columns: 1fr;
+          }
           .sidebar {
             width: 80px;
           }
@@ -470,7 +731,18 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
               {todayCourses.map(course => {
                 const status = getStatusDisplay(course.attendance_status);
                 return (
-                <div key={course.schedule_id} className="course-item">
+                <div
+                  key={course.schedule_id}
+                  className="course-item"
+                  onClick={() => setSelectedScheduleId(course.schedule_id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      setSelectedScheduleId(course.schedule_id);
+                    }
+                  }}
+                >
                   <div className="course-name">
                     <span className="course-code">{course.course.code}</span>
                     {course.course.name}
@@ -483,6 +755,63 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
               )})}
             </div>
           </div>
+
+          <section className="attendance-camera">
+            <div className="camera-frame">
+              {cameraStream ? (
+                <video ref={videoRef} autoPlay muted playsInline />
+              ) : (
+                <span>Kamera lokal belum aktif</span>
+              )}
+            </div>
+            <div className="camera-panel">
+              <div>
+                <h2 className="camera-title">Absensi Kamera Lokal</h2>
+                <p className="camera-meta">
+                  {activeCourse
+                    ? `${activeCourse.course.code} ${activeCourse.course.name} - ${new Date(activeCourse.start_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} sampai ${new Date(activeCourse.end_time).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}`
+                    : "Pilih jadwal hari ini untuk memulai scan."}
+                </p>
+              </div>
+              <select
+                className="schedule-select"
+                value={activeCourse?.schedule_id ?? ""}
+                onChange={(event) => setSelectedScheduleId(event.target.value)}
+                disabled={todayCourses.length === 0}
+              >
+                {todayCourses.length === 0 ? <option value="">Tidak ada jadwal</option> : null}
+                {todayCourses.map((course) => (
+                  <option key={course.schedule_id} value={course.schedule_id}>
+                    {course.course.code} {course.course.name} - {getStatusDisplay(course.attendance_status).label}
+                  </option>
+                ))}
+              </select>
+              <div className="camera-actions">
+                <button className="camera-button" type="button" onClick={startCamera} disabled={isCameraStarting}>
+                  {cameraStream ? "Restart Kamera" : isCameraStarting ? "Membuka..." : "Aktifkan Kamera"}
+                </button>
+                <button className="camera-button" type="button" onClick={stopCamera} disabled={!cameraStream}>
+                  Matikan
+                </button>
+                <button
+                  className="camera-button primary"
+                  type="button"
+                  onClick={() => void submitCameraAttendance()}
+                  disabled={!activeCourse || !cameraStream || isScanning}
+                >
+                  {isScanning ? "Memindai..." : scanAction === "check_in" ? "Scan Check-in" : "Scan Check-out"}
+                </button>
+              </div>
+              {scanResult ? (
+                <div className="scan-status">
+                  Model mendeteksi {scanResult.class} dengan confidence {(scanResult.confidence * 100).toFixed(1)}%.
+                </div>
+              ) : null}
+              {scanMessage ? <div className="scan-status">{scanMessage}</div> : null}
+              {cameraError || scanError ? <div className="scan-status error">{cameraError ?? scanError}</div> : null}
+              <canvas ref={canvasRef} hidden />
+            </div>
+          </section>
         </div>
       </main>
     </div>

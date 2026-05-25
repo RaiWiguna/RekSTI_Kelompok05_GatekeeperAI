@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger } from "@nestjs/common";
 import { OverrideStatus } from "@prisma/client";
 import type { CreateOverrideInput, OverridesListQueryInput } from "@gatekeeper/shared-validation";
 
@@ -15,6 +15,8 @@ import { PrismaService } from "../database/prisma.service";
 
 @Injectable()
 export class OverridesService {
+  private readonly logger = new Logger(OverridesService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(user: AuthUser, payload: CreateOverrideInput) {
@@ -30,6 +32,16 @@ export class OverridesService {
     });
     const action = toOverrideAction(payload.action);
     const dispatchResult = await dispatchOverrideToIot(payload.action);
+    this.logger.log(
+      JSON.stringify({
+        action: "iot_override_dispatch",
+        overrideAction: payload.action,
+        roomId: payload.room_id,
+        ok: dispatchResult.ok,
+        url: dispatchResult.url,
+        error: dispatchResult.error,
+      }),
+    );
 
     try {
       const override = await this.prisma.overrideLog.create({

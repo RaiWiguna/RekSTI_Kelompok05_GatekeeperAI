@@ -3,6 +3,7 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  Logger,
   Post,
 } from "@nestjs/common";
 
@@ -10,6 +11,8 @@ import { SerialService } from "./serial.service";
 
 @Controller("gateway")
 export class GatewayController {
+  private readonly logger = new Logger(GatewayController.name);
+
   constructor(private readonly serial: SerialService) {}
 
   @Post("unlock")
@@ -39,6 +42,7 @@ export class GatewayController {
 
   private send(command: string, fn: () => void) {
     try {
+      this.logger.log(`HTTP command received: ${command}`);
       fn();
       return { ok: true, command };
     } catch (err) {

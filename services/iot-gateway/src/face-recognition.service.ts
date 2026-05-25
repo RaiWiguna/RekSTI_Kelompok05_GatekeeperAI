@@ -58,7 +58,7 @@ export class FaceRecognitionService {
   async detectFaceFromFile(fileBuffer: Buffer): Promise<InferenceResponse> {
     try {
       const formData = new FormData();
-      const blob = new Blob([fileBuffer], { type: "image/jpeg" });
+      const blob = new Blob([new Uint8Array(fileBuffer)], { type: "image/jpeg" });
       formData.append("image", blob, "image.jpg");
 
       const response = await axios.post<InferenceResponse>(

@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 
 const FACE_RECOGNITION_URL =
-  process.env.FACE_RECOGNITION_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+  (process.env.FACE_RECOGNITION_URL ?? process.env.FACE_SERVICE_URL ?? "http://localhost:8000")
+    .replace(/\/$/, "");
 
 type Detection = {
   class: string;

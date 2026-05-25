@@ -21,6 +21,12 @@ import { OverridesService } from "./overrides.service";
 export class OverridesController {
   constructor(private readonly overridesService: OverridesService) {}
 
+  @Get("gateway/diagnostics")
+  async diagnoseGateway() {
+    const data = await this.overridesService.diagnoseGateway();
+    return successResponse(data);
+  }
+
   @Post()
   async create(
     @CurrentUser() user: AuthUser,

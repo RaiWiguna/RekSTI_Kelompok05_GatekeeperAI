@@ -24,6 +24,7 @@ export const integrationEnvSchema = z.object({
   SIX_SYNC_CRON: z.string().min(1).default("0 0 * * *"),
   FACE_SERVICE_URL: z.string().url().default("http://localhost:8000"),
   IOT_GATEWAY_BASE_URL: z.string().url().default("http://localhost:3002/v1"),
+  IOT_GATEWAY_REQUEST_TIMEOUT_MS: z.string().default("5000"),
 });
 
 export const apiEnvSchema = runtimeEnvSchema

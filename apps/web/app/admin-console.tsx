@@ -368,7 +368,11 @@ export default function AdminConsole() {
         },
         onAccessTokenRotated: setToken,
       });
-      setMessage(response.status === "sent" ? "Door command sent to IoT gateway." : response.iot_gateway?.message ?? "Door command failed.");
+      if (response.status === "sent") {
+        setMessage(response.iot_gateway?.message ?? "Door command sent to IoT gateway.");
+      } else {
+        setError(response.iot_gateway?.message ?? "Door command failed.");
+      }
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Unable to send door override."));
     } finally {
@@ -501,6 +505,8 @@ export default function AdminConsole() {
         onNavigateToNotifications={navigateToNotifications}
         onOverride={(action, roomId) => void handleLecturerOverride(action, roomId)}
         isOverrideSubmitting={submitting}
+        overrideMessage={message}
+        overrideError={error}
       />
     );
   }

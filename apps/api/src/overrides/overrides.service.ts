@@ -2,7 +2,6 @@ import { ForbiddenException, Injectable, Logger } from "@nestjs/common";
 import { OverrideStatus } from "@prisma/client";
 import type { CreateOverrideInput, OverridesListQueryInput } from "@gatekeeper/shared-validation";
 
-import { appEnv } from "../config/app-env";
 import type { AuthUser } from "../common/auth/auth-user.interface";
 import { mapPrismaError } from "../common/database/prisma-error";
 import {
@@ -11,6 +10,7 @@ import {
   toOverrideAction,
 } from "../common/database/prisma-enum-mappers";
 import { buildPaginationMeta, getPaginationParams } from "../common/http/pagination";
+import { diagnoseIotGateway, dispatchIotGatewayCommand } from "../common/http/iot-gateway-client";
 import { PrismaService } from "../database/prisma.service";
 
 @Injectable()
@@ -31,7 +31,7 @@ export class OverridesService {
       },
     });
     const action = toOverrideAction(payload.action);
-    const dispatchResult = await dispatchOverrideToIot(payload.action);
+    const dispatchResult = await dispatchIotGatewayCommand(payload.action);
     this.logger.log(
       JSON.stringify({
         action: "iot_override_dispatch",
@@ -75,6 +75,10 @@ export class OverridesService {
     } catch (error) {
       mapPrismaError(error, "Override");
     }
+  }
+
+  diagnoseGateway() {
+    return diagnoseIotGateway();
   }
 
   async list(user: AuthUser, query: OverridesListQueryInput) {
@@ -169,40 +173,6 @@ export class OverridesService {
           },
         },
       },
-    };
-  }
-}
-
-async function dispatchOverrideToIot(action: "unlock" | "lock") {
-  const normalizedBaseUrl = appEnv.IOT_GATEWAY_BASE_URL.replace(/\/$/, "");
-  const url = `${normalizedBaseUrl}/v1/gateway/${action}`;
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        url,
-        error: `IoT gateway returned HTTP ${response.status}`,
-      };
-    }
-
-    return {
-      ok: true,
-      url,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      url,
-      error: error instanceof Error ? error.message : "Unable to reach IoT gateway",
     };
   }
 }

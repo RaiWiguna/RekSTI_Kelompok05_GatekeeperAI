@@ -114,10 +114,16 @@ export class SerialService implements OnModuleInit, OnModuleDestroy {
 
   sendUnlock() {
     this.write("UNLOCK");
+    this.state.lock = "UNLOCKED";
+    this.state.lastEventAt = new Date().toISOString();
+    this.state.lastEvent = "COMMAND_SENT:UNLOCK";
   }
 
   sendLock() {
     this.write("LOCK");
+    this.state.lock = "LOCKED";
+    this.state.lastEventAt = new Date().toISOString();
+    this.state.lastEvent = "COMMAND_SENT:LOCK";
   }
 
   sendPing() {

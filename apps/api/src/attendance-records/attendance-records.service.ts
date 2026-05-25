@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable } from "@nestjs/common";
 import type { AttendanceRecordsListQueryInput } from "@gatekeeper/shared-validation";
 
 import type { AuthUser } from "../common/auth/auth-user.interface";
+import { formatDateOnly } from "../common/date/calendar";
 import { assertFound } from "../common/database/query-helpers";
 import {
   fromAttendanceSource,
@@ -28,7 +29,7 @@ export class AttendanceRecordsService {
       ...(query.source ? { source: toAttendanceSource(query.source) } : {}),
       ...(query.date_from || query.date_to
         ? {
-            checkInAt: {
+            occurrenceDate: {
               ...(query.date_from ? { gte: new Date(query.date_from) } : {}),
               ...(query.date_to ? { lte: new Date(query.date_to) } : {}),
             },
@@ -161,6 +162,7 @@ function mapAttendanceRecord(record: {
   studentId: string;
   classId: string;
   scheduleId: string | null;
+  occurrenceDate: Date;
   roomId: string | null;
   status: Parameters<typeof fromAttendanceStatus>[0];
   source: Parameters<typeof fromAttendanceSource>[0];
@@ -193,6 +195,7 @@ function mapAttendanceRecord(record: {
     student_id: record.studentId,
     class_id: record.classId,
     schedule_id: record.scheduleId,
+    occurrence_date: formatDateOnly(record.occurrenceDate),
     room_id: record.roomId,
     status: fromAttendanceStatus(record.status),
     source: fromAttendanceSource(record.source),

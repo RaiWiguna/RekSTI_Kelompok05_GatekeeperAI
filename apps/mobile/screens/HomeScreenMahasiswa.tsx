@@ -13,52 +13,25 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { ClassListScreen } from "./ClassesMahasiswa";
 import { ProfileScreen } from "./ProfileMahasiswa";
 import { NotificationScreen } from "./NotificationScreen"; 
-
-// --- DATA MOCKUP ---
-const TODAY_COURSES = [
-  {
-    id: 1,
-    code: "II3220",
-    name: "Tata Kelola Teknologi Informasi",
-    status: "Attended",
-    color: "#4ADE80",
-  },
-  {
-    id: 2,
-    code: "WI2022",
-    name: "Manajemen Proyek",
-    status: "Absent",
-    color: "#F87171",
-  },
-  {
-    id: 3,
-    code: "II3230",
-    name: "Keamanan Informasi",
-    status: "Not yet",
-    color: "#FACC15",
-  },
-  {
-    id: 4,
-    code: "II3240",
-    name: "Rekayasa Sistem TI",
-    status: "Not yet",
-    color: "#FACC15",
-  },
-];
+import { getStudentTodaySchedules, type StudentTodaySchedule } from "../api-client";
 
 // --- KOMPONEN HOME SCREEN CONTENT ---
 function HomeScreenContent({ 
   userName,
+  accessToken,
   onNavigateToClasses, 
   onNavigateToProfile,
   onNavigateToNotifications
 }: { 
   userName: string;
+  accessToken: string;
   onNavigateToClasses: () => void; 
   onNavigateToProfile: () => void;
   onNavigateToNotifications: () => void;
 }) {
   const [timeLeft, setTimeLeft] = useState(3600);
+  const [todayCourses, setTodayCourses] = useState<StudentTodaySchedule[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (timeLeft <= 0) return;
@@ -67,6 +40,26 @@ function HomeScreenContent({
     }, 1000);
     return () => clearInterval(intervalId);
   }, [timeLeft]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getStudentTodaySchedules(accessToken)
+      .then((items) => {
+        if (isMounted) {
+          setTodayCourses(items);
+          setLoadError(null);
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Gagal memuat jadwal hari ini.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -84,6 +77,7 @@ function HomeScreenContent({
   };
 
   const currentDate = getCurrentDate();
+  const activeCourse = todayCourses.find((course) => course.attendance_status === "not_yet") ?? todayCourses[0];
 
   return (
     <View style={styles.container}>
@@ -127,10 +121,10 @@ function HomeScreenContent({
 
           <View style={styles.activeClassInfo}>
             <Text style={styles.activeCourseTitle}>
-              II3230 Keamanan Informasi
+              {activeCourse ? `${activeCourse.course.code} ${activeCourse.course.name}` : "Tidak ada jadwal aktif"}
             </Text>
             <Text style={styles.activeCourseLecturer}>
-              Ir. Budi Rahardjo, M.Sc., Ph.D.
+              {activeCourse?.lecturer.full_name ?? "-"}
             </Text>
           </View>
 
@@ -158,20 +152,26 @@ function HomeScreenContent({
         <View style={styles.courseListContainer}>
           <Text style={styles.sectionTitle}>Today's Course</Text>
 
-          {TODAY_COURSES.map((course) => (
-            <View key={course.id} style={styles.courseListItem}>
+          {loadError ? <Text style={styles.emptyStateText}>{loadError}</Text> : null}
+          {!loadError && todayCourses.length === 0 ? (
+            <Text style={styles.emptyStateText}>Tidak ada jadwal hari ini.</Text>
+          ) : null}
+          {todayCourses.map((course) => {
+            const status = getStatusDisplay(course.attendance_status);
+            return (
+            <View key={course.schedule_id} style={styles.courseListItem}>
               <Text style={styles.courseNameText}>
-                <Text style={styles.courseCodeText}>{course.code}</Text>{" "}
-                {course.name}
+                <Text style={styles.courseCodeText}>{course.course.code}</Text>{" "}
+                {course.course.name}
               </Text>
               <View style={styles.statusBadge}>
                 <View
-                  style={[styles.statusDot, { backgroundColor: course.color }]}
+                  style={[styles.statusDot, { backgroundColor: status.color }]}
                 />
-                <Text style={styles.statusText}>{course.status}</Text>
+                <Text style={styles.statusText}>{status.label}</Text>
               </View>
             </View>
-          ))}
+          )})}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -196,10 +196,12 @@ function HomeScreenContent({
 
 // --- WRAPPER UNTUK HALAMAN CLASSES ---
 function ClassesMahasiswaWrapper({ 
+  accessToken,
   onNavigateHome, 
   onNavigateToProfile,
   onNavigateToNotifications 
 }: { 
+  accessToken: string;
   onNavigateHome: () => void; 
   onNavigateToProfile: () => void;
   onNavigateToNotifications: () => void;
@@ -207,6 +209,7 @@ function ClassesMahasiswaWrapper({
   return (
     <View style={styles.container}>
       <ClassListScreen 
+        accessToken={accessToken}
         onNavigateHome={onNavigateHome} 
         onNavigateToProfile={onNavigateToProfile} 
         onNavigateToNotifications={onNavigateToNotifications} 
@@ -223,7 +226,7 @@ function ProfileWrapper({ onNavigateHome, onNavigateToClasses, onLogout }: { onN
 }
 
 // --- MAIN EXPORT & STATE MANAGER ---
-export function HomeScreen({ userName, onLogout }: { userName: string; onLogout: () => void }) {
+export function HomeScreen({ userName, accessToken, onLogout }: { userName: string; accessToken: string; onLogout: () => void }) {
   const [currentScreen, setCurrentScreen] = useState<"home" | "classes" | "profile" | "notifications">("home");
   
   // State baru untuk menyimpan riwayat halaman sebelum membuka notifikasi
@@ -246,6 +249,7 @@ export function HomeScreen({ userName, onLogout }: { userName: string; onLogout:
   if (currentScreen === "classes") {
     return (
       <ClassesMahasiswaWrapper 
+        accessToken={accessToken}
         onNavigateHome={() => setCurrentScreen("home")} 
         onNavigateToProfile={() => setCurrentScreen("profile")}
         onNavigateToNotifications={goToNotifications} // Gunakan fungsi interseptor
@@ -266,11 +270,24 @@ export function HomeScreen({ userName, onLogout }: { userName: string; onLogout:
   return (
     <HomeScreenContent 
       userName={userName}
+      accessToken={accessToken}
       onNavigateToClasses={() => setCurrentScreen("classes")} 
       onNavigateToProfile={() => setCurrentScreen("profile")}
       onNavigateToNotifications={goToNotifications} // Gunakan fungsi interseptor
     />
   );
+}
+
+function getStatusDisplay(status: StudentTodaySchedule["attendance_status"]) {
+  if (status === "attended") {
+    return { label: "Attended", color: "#4ADE80" };
+  }
+
+  if (status === "absent") {
+    return { label: "Absent", color: "#F87171" };
+  }
+
+  return { label: "Not yet", color: "#FACC15" };
 }
 
 const styles = StyleSheet.create({
@@ -317,6 +334,7 @@ const styles = StyleSheet.create({
   punchDate: { fontSize: 10, color: "#64748B", textAlign: 'center' },
   courseListContainer: { paddingHorizontal: 24, paddingTop: 30 },
   sectionTitle: { fontSize: 20, fontWeight: "bold", color: "#000", marginBottom: 16 },
+  emptyStateText: { color: "#64748B", fontSize: 13, marginBottom: 12 },
   courseListItem: {
     flexDirection: "row",
     justifyContent: "space-between",

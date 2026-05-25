@@ -17,6 +17,7 @@ type HomeScreenDosenProps = {
   lecturerManagedClasses: LecturerManagedClass[];
   lecturerRoster: LecturerClassRoster | null;
   onNavigateToNotifications: () => void;
+  onOverride: (action: "unlock" | "lock", roomId?: string) => void;
 };
 
 export function HomeScreenDosen({ 
@@ -25,7 +26,8 @@ export function HomeScreenDosen({
   activeTab, 
   onTabChange,
   lecturerTodayClasses,
-  onNavigateToNotifications 
+  onNavigateToNotifications,
+  onOverride,
 }: HomeScreenDosenProps) {
   const [timer, setTimer] = useState("00:00:00");
 
@@ -392,7 +394,7 @@ export function HomeScreenDosen({
               Gunakan tombol dibawah untuk membuka kunci pintu kelas tanpa melakukan pengenalan wajah. Pintu akan terkunci kembali dalam:
             </p>
             <div className="countdown-timer">{timer}</div>
-            <button className="open-door-button" onClick={() => alert("Pintu Terbuka!")}>Buka Pintu</button>
+            <button className="open-door-button" onClick={() => onOverride("unlock", currentClass.roomId)}>Buka Pintu</button>
           </div>
         </div>
       </main>
@@ -406,6 +408,7 @@ function toTodayClassSummary(classItem?: LecturerTodayClass) {
       courseCode: "II3230",
       courseName: "Keamanan Informasi",
       className: "Kelas 01 - 7601",
+      roomId: undefined,
       studentCount: 72,
       presentCount: 50,
     };
@@ -415,7 +418,8 @@ function toTodayClassSummary(classItem?: LecturerTodayClass) {
     courseCode: classItem.course.code,
     courseName: classItem.course.name,
     className: `${classItem.class_code} - ${classItem.room.code}`,
+    roomId: classItem.room.id,
     studentCount: classItem.enrollments_count,
-    presentCount: 0,
+    presentCount: classItem.present_count ?? 0,
   };
 }

@@ -5,6 +5,7 @@ import type {
   UpdateScheduleInput,
 } from "@gatekeeper/shared-validation";
 
+import { formatDateOnly, parseDateOnly } from "../common/date/calendar";
 import { getDayOfWeekFromDate } from "../common/date/day-of-week";
 import { formatTimeString, parseTimeString } from "../common/date/time";
 import { mapPrismaError } from "../common/database/prisma-error";
@@ -25,9 +26,16 @@ export class SchedulesService {
   async list(query: SchedulesListQueryInput) {
     const { skip, take, page, limit } = getPaginationParams(query);
     const resolvedDayOfWeek = query.date ? getDayOfWeekFromDate(query.date) : query.day_of_week;
+    const resolvedDate = query.date ? parseDateOnly(query.date) : null;
     const where = {
       ...(query.class_id ? { classId: query.class_id } : {}),
       ...(resolvedDayOfWeek ? { dayOfWeek: toDayOfWeek(resolvedDayOfWeek) } : {}),
+      ...(resolvedDate
+        ? {
+            startDate: { lte: resolvedDate },
+            endDate: { gte: resolvedDate },
+          }
+        : {}),
       ...(query.room_id ? { class: { roomId: query.room_id } } : {}),
     };
 
@@ -95,6 +103,8 @@ export class SchedulesService {
         data: {
           classId: payload.class_id,
           dayOfWeek: toDayOfWeek(payload.day_of_week),
+          startDate: parseDateOnly(payload.start_date),
+          endDate: parseDateOnly(payload.end_date),
           startTime: parseTimeString(payload.start_time),
           endTime: parseTimeString(payload.end_time),
           source: toScheduleSource(payload.source),
@@ -134,6 +144,8 @@ export class SchedulesService {
           ...(payload.day_of_week !== undefined
             ? { dayOfWeek: toDayOfWeek(payload.day_of_week) }
             : {}),
+          ...(payload.start_date !== undefined ? { startDate: parseDateOnly(payload.start_date) } : {}),
+          ...(payload.end_date !== undefined ? { endDate: parseDateOnly(payload.end_date) } : {}),
           ...(payload.start_time !== undefined
             ? { startTime: parseTimeString(payload.start_time) }
             : {}),
@@ -202,6 +214,8 @@ function mapSchedule(schedule: {
   id: string;
   classId: string;
   dayOfWeek: Parameters<typeof fromDayOfWeek>[0];
+  startDate: Date;
+  endDate: Date;
   startTime: Date;
   endTime: Date;
   source: Parameters<typeof fromScheduleSource>[0];
@@ -224,6 +238,8 @@ function mapSchedule(schedule: {
     id: schedule.id,
     class_id: schedule.classId,
     day_of_week: fromDayOfWeek(schedule.dayOfWeek),
+    start_date: formatDateOnly(schedule.startDate),
+    end_date: formatDateOnly(schedule.endDate),
     start_time: formatTimeString(schedule.startTime),
     end_time: formatTimeString(schedule.endTime),
     source: fromScheduleSource(schedule.source),

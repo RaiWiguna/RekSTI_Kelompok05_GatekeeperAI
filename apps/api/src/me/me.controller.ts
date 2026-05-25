@@ -45,9 +45,11 @@ export class MeController {
   }
 
   @Get("classes")
-  @Roles("lecturer")
-  async getLecturerClasses(@CurrentUser() user: AuthUser) {
-    const data = await this.meService.getLecturerClasses(user);
+  @Roles("student", "lecturer")
+  async getMyClasses(@CurrentUser() user: AuthUser) {
+    const data = user.role === "student"
+      ? await this.meService.getStudentClasses(user)
+      : await this.meService.getLecturerClasses(user);
     return successResponse(data);
   }
 

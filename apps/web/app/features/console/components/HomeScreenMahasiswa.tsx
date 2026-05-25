@@ -1,47 +1,59 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
+import { apiRequest } from "../../../lib/api-client";
 
-const TODAY_COURSES = [
-  {
-    id: 1,
-    code: "II3220",
-    name: "Tata Kelola Teknologi Informasi",
-    status: "Attended",
-    color: "#4ADE80",
-  },
-  {
-    id: 2,
-    code: "WI2022",
-    name: "Manajemen Proyek",
-    status: "Absent",
-    color: "#F87171",
-  },
-  {
-    id: 3,
-    code: "II3230",
-    name: "Keamanan Informasi",
-    status: "Not Yet",
-    color: "#FACC15",
-  },
-  {
-    id: 4,
-    code: "II3240",
-    name: "Rekayasa Sistem TI",
-    status: "Not Yet",
-    color: "#FACC15",
-  },
-];
+type TodayCourse = {
+  schedule_id: string;
+  attendance_status: "attended" | "absent" | "not_yet";
+  check_in_at: string | null;
+  check_out_at: string | null;
+  course: {
+    code: string;
+    name: string;
+  };
+  lecturer: {
+    full_name: string;
+  };
+};
 
 type HomeScreenMahasiswaProps = {
+  accessToken: string;
   onLogout: () => void;
   activeTab: string;
   onTabChange: (tab: "dashboard" | "kelas" | "profil") => void;
   onNavigateToNotifications: () => void;
 };
 
-export function HomeScreenMahasiswa({ onLogout, activeTab, onTabChange, onNavigateToNotifications }: HomeScreenMahasiswaProps) {
+export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabChange, onNavigateToNotifications }: HomeScreenMahasiswaProps) {
+  const [todayCourses, setTodayCourses] = useState<TodayCourse[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiRequest<TodayCourse[]>("me/schedules/today", { accessToken })
+      .then((items) => {
+        if (isMounted) {
+          setTodayCourses(items);
+          setLoadError(null);
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Unable to load today's courses.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
+  const activeCourse = useMemo(
+    () => todayCourses.find((course) => course.attendance_status === "not_yet") ?? todayCourses[0],
+    [todayCourses],
+  );
   const getCurrentDate = () => {
     const options: Intl.DateTimeFormatOptions = { 
       weekday: 'long', 
@@ -423,8 +435,10 @@ export function HomeScreenMahasiswa({ onLogout, activeTab, onTabChange, onNaviga
             </div>
 
             <div className="class-info">
-              <h2 className="class-title">II3230 Keamanan Informasi</h2>
-              <p className="class-lecturer">Ir. Budi Rahardjo, M.Sc., Ph.D.</p>
+              <h2 className="class-title">
+                {activeCourse ? `${activeCourse.course.code} ${activeCourse.course.name}` : "Tidak ada jadwal aktif"}
+              </h2>
+              <p className="class-lecturer">{activeCourse?.lecturer.full_name ?? "-"}</p>
             </div>
 
             <div className="punch-cards">
@@ -451,22 +465,36 @@ export function HomeScreenMahasiswa({ onLogout, activeTab, onTabChange, onNaviga
           <div className="courses-section">
             <h2 className="section-header">Today's Course</h2>
             <div className="course-list">
-              {TODAY_COURSES.map(course => (
-                <div key={course.id} className="course-item">
+              {loadError ? <p>{loadError}</p> : null}
+              {!loadError && todayCourses.length === 0 ? <p>Tidak ada jadwal hari ini.</p> : null}
+              {todayCourses.map(course => {
+                const status = getStatusDisplay(course.attendance_status);
+                return (
+                <div key={course.schedule_id} className="course-item">
                   <div className="course-name">
-                    <span className="course-code">{course.code}</span>
-                    {course.name}
+                    <span className="course-code">{course.course.code}</span>
+                    {course.course.name}
                   </div>
                   <div className="status-badge">
-                    <div className="status-dot" style={{ backgroundColor: course.color }}></div>
-                    {course.status}
+                    <div className="status-dot" style={{ backgroundColor: status.color }}></div>
+                    {status.label}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         </div>
       </main>
     </div>
   );
+}
+
+function getStatusDisplay(status: TodayCourse["attendance_status"]) {
+  if (status === "attended") {
+    return { label: "Attended", color: "#4ADE80" };
+  }
+  if (status === "absent") {
+    return { label: "Absent", color: "#F87171" };
+  }
+  return { label: "Not Yet", color: "#FACC15" };
 }

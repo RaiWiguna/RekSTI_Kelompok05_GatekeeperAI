@@ -13,6 +13,7 @@ import type {
 import { createHash } from "node:crypto";
 
 import { appEnv } from "../config/app-env";
+import { parseDateOnly } from "../common/date/calendar";
 import {
   fromAccessResult,
   toAccessEventType,
@@ -118,6 +119,7 @@ export class GatewayService {
         roomId: resolved.room?.id ?? resolved.device?.roomId ?? null,
         eventType: payload.event_type,
         eventAt: new Date(payload.event_at),
+        occurrenceDate: parseDateOnly(payload.event_at.slice(0, 10)),
       });
     }
 
@@ -241,6 +243,8 @@ export class GatewayService {
         day_of_week: schedule.dayOfWeek.toLowerCase(),
         start_time: schedule.startTime.toISOString(),
         end_time: schedule.endTime.toISOString(),
+        start_date: schedule.startDate.toISOString().slice(0, 10),
+        end_date: schedule.endDate.toISOString().slice(0, 10),
         class_id: schedule.classId,
         class_code: schedule.class.classCode,
         course: {
@@ -338,11 +342,13 @@ export class GatewayService {
     roomId: string | null;
     eventType: GatewayEventInput["event_type"];
     eventAt: Date;
+    occurrenceDate: Date;
   }) {
     const existing = await this.prisma.attendanceRecord.findFirst({
       where: {
         studentId: params.studentId,
         scheduleId: params.scheduleId,
+        occurrenceDate: params.occurrenceDate,
       },
       select: { id: true },
     });
@@ -369,6 +375,7 @@ export class GatewayService {
         studentId: params.studentId,
         classId: params.classId,
         scheduleId: params.scheduleId,
+        occurrenceDate: params.occurrenceDate,
         roomId: params.roomId,
         status: isExit ? AttendanceStatus.LEFT : AttendanceStatus.PRESENT,
         source: AttendanceSource.DEVICE,

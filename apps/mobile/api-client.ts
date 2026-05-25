@@ -39,6 +39,82 @@ export type UpdateMyProfileResponse = {
   role: ApiUserRole;
 };
 
+export type StudentTodaySchedule = {
+  schedule_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  attendance_status: "attended" | "absent" | "not_yet";
+  check_in_at: string | null;
+  check_out_at: string | null;
+  course: {
+    code: string;
+    name: string;
+  };
+  lecturer: {
+    full_name: string;
+  };
+};
+
+export type StudentClassSummary = {
+  class_id: string;
+  class_code: string;
+  course: {
+    code: string;
+    name: string;
+  };
+  lecturer: {
+    full_name: string;
+  };
+  attendance_percentage: number;
+  attendance_history: Array<{
+    schedule_id: string;
+    date: string;
+    status: "attended" | "absent";
+  }>;
+};
+
+export type LecturerClassSummary = {
+  class_id: string;
+  class_code: string;
+  course: {
+    code: string;
+    name: string;
+  };
+  room: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  enrollments_count: number;
+  present_count?: number;
+  absent_count?: number;
+};
+
+export type LecturerClassRoster = {
+  class_id: string;
+  class_code: string;
+  course: {
+    code: string;
+    name: string;
+  };
+  room: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  students: Array<{
+    enrollment_id: string;
+    status: string;
+    student: {
+      id: string;
+      nim: string;
+      full_name: string;
+      status: string;
+    };
+  }>;
+};
+
 export type ConnectivityDiagnostics = {
   apiBaseUrl: string;
   loginUrl: string;
@@ -189,6 +265,65 @@ export async function updateMyAccountName(accessToken: string, accountName: stri
     },
     body: JSON.stringify({
       account_name: accountName,
+    }),
+  });
+}
+
+export async function getStudentTodaySchedules(accessToken: string) {
+  return fetchJson<StudentTodaySchedule[]>(buildApiUrl("me/schedules/today"), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getStudentClasses(accessToken: string) {
+  return fetchJson<StudentClassSummary[]>(buildApiUrl("me/classes"), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getLecturerTodayClasses(accessToken: string) {
+  return fetchJson<LecturerClassSummary[]>(buildApiUrl("me/classes/today"), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getLecturerClasses(accessToken: string) {
+  return fetchJson<LecturerClassSummary[]>(buildApiUrl("me/classes"), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getLecturerClassRoster(accessToken: string, classId: string) {
+  return fetchJson<LecturerClassRoster>(buildApiUrl(`classes/${classId}/roster`), {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function sendDoorOverride(accessToken: string, roomId: string, action: "unlock" | "lock") {
+  return fetchJson<{ status: "sent" | "failed"; iot_gateway?: { message?: string } }>(buildApiUrl("overrides"), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      room_id: roomId,
+      action,
+      reason: `Lecturer ${action} request from mobile app`,
     }),
   });
 }

@@ -16,6 +16,8 @@ export type ResourceForms = Record<ResourceKey, Record<string, string>>;
 export type LecturerClassSchedule = {
   schedule_id: string;
   day_of_week: string;
+  start_date?: string;
+  end_date?: string;
   start_time: string;
   end_time: string;
   source: string;
@@ -43,6 +45,8 @@ export type LecturerClassCard = {
   };
   schedules: LecturerClassSchedule[];
   enrollments_count: number;
+  present_count?: number;
+  absent_count?: number;
 };
 
 export type LecturerTodayClass = LecturerClassCard & {

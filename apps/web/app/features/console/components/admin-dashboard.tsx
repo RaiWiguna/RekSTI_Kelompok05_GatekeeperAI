@@ -43,14 +43,24 @@ export function AdminDashboard({
   const [showPassword, setShowPassword] = useState(false);
   const isEditing = Boolean(editingItem);
   const effectiveValues = isEditing ? editingValues : formValues;
+  const selectedRole = effectiveValues.role;
+  const selectedStudentId = effectiveValues.student_id;
   const selectedLecturerId = effectiveValues.lecturer_id;
-  const linkedAccountForSelectedLecturer = useMemo(() => {
-    if (config.key !== "users" || !selectedLecturerId) {
+  const linkedAccountForSelectedProfile = useMemo(() => {
+    if (config.key !== "users") {
       return null;
     }
 
-    return records.users.find((item) => item.lecturer_id === selectedLecturerId) ?? null;
-  }, [config.key, records.users, selectedLecturerId]);
+    if (selectedRole === "student" && selectedStudentId) {
+      return records.users.find((item) => item.student_id === selectedStudentId) ?? null;
+    }
+
+    if (selectedRole === "lecturer" && selectedLecturerId) {
+      return records.users.find((item) => item.lecturer_id === selectedLecturerId) ?? null;
+    }
+
+    return null;
+  }, [config.key, records.users, selectedLecturerId, selectedRole, selectedStudentId]);
 
   function startEdit(item: ResourceItem) {
     const values = config.fields.reduce((accumulator, field) => {
@@ -110,9 +120,9 @@ export function AdminDashboard({
         </div>
         <div className="panel-body">
           {config.formHelp ? <p className="form-note">{config.formHelp}</p> : null}
-          {config.key === "users" && !isEditing && linkedAccountForSelectedLecturer ? (
+          {config.key === "users" && !isEditing && linkedAccountForSelectedProfile ? (
             <div className="message">
-              This lecturer already has an account. Select the account row to update it.
+              This profile already has an account. Select the account row to update it.
             </div>
           ) : null}
           <form className="form-grid" onSubmit={handleSubmit}>

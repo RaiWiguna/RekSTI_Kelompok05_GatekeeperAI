@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "rea
 import type { FormEvent } from "react";
 
 import { AdminDashboard } from "./features/console/components/admin-dashboard";
+import { AdminScheduleDebugPanel } from "./features/console/components/admin-schedule-debug-panel";
 import { ConsoleSidebar } from "./features/console/components/console-sidebar";
 import { HomeScreenDosen } from "./features/console/components/HomeScreenDosen";
 import { LoginScreen, Session } from "./features/console/components/LoginScreen";
@@ -518,23 +519,26 @@ export default function AdminConsole() {
         />
         <section className="surface">
           {user.role === "admin" ? (
-            <AdminDashboard
-              config={resourceConfigs[activeResource]}
-              error={error}
-              filteredItems={filteredItems}
-              formValues={forms[activeResource]}
-              loading={loading}
-              message={message}
-              records={records}
-              query={query}
-              submitting={submitting}
-              onCreate={handleCreate}
-              onDelete={handleDelete}
-              onFormChange={handleFormChange}
-              onQueryChange={setQuery}
-              onRefresh={() => void refreshActiveResource()}
-              onUpdate={(id, values) => void handleUpdate(id, values)}
-            />
+            <>
+              <AdminScheduleDebugPanel accessToken={getCurrentAccessToken()} />
+              <AdminDashboard
+                config={resourceConfigs[activeResource]}
+                error={error}
+                filteredItems={filteredItems}
+                formValues={forms[activeResource]}
+                loading={loading}
+                message={message}
+                records={records}
+                query={query}
+                submitting={submitting}
+                onCreate={handleCreate}
+                onDelete={handleDelete}
+                onFormChange={handleFormChange}
+                onQueryChange={setQuery}
+                onRefresh={() => void refreshActiveResource()}
+                onUpdate={(id, values) => void handleUpdate(id, values)}
+              />
+            </>
           ) : null}
         </section>
       </div>

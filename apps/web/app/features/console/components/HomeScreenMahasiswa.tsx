@@ -119,7 +119,7 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
   };
 
   const currentDate = getCurrentDate();
-  const scanAction = activeCourse?.attendance_status === "attended" ? "check_out" : "check_in";
+  const scanAction: "check_in" = "check_in";
 
   async function startCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -224,7 +224,7 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
         ? ` IoT unlock ${attendance.iot_override.status}: ${attendance.iot_override.iot_gateway.message}.`
         : "";
       setScanMessage(
-        `${scanAction === "check_in" ? "Check-in" : "Check-out"} berhasil. Status: ${attendance.status}. Confidence: ${(matchedFace.confidence * 100).toFixed(1)}%.${iotMessage}`,
+        `Scan berhasil. Status: ${attendance.status}. Confidence: ${(matchedFace.confidence * 100).toFixed(1)}%.${iotMessage}`,
       );
       const refreshedCourses = await apiRequest<TodayCourse[]>("me/schedules/today", { accessToken });
       setTodayCourses(refreshedCourses);
@@ -812,7 +812,7 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
                   onClick={() => void submitCameraAttendance()}
                   disabled={!activeCourse || !cameraStream || isScanning}
                 >
-                  {isScanning ? "Memindai..." : scanAction === "check_in" ? "Scan Check-in" : "Scan Check-out"}
+                  {isScanning ? "Memindai..." : "Scan & Buka Pintu"}
                 </button>
               </div>
               {scanResult ? (

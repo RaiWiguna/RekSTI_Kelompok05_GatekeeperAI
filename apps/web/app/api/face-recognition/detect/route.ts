@@ -1,7 +1,11 @@
 import type { NextRequest } from "next/server";
 
+const DEFAULT_FACE_RECOGNITION_URL =
+  process.env.NODE_ENV === "production"
+    ? "http://103.31.38.237/face"
+    : "http://localhost:8000";
 const FACE_RECOGNITION_URL =
-  (process.env.FACE_RECOGNITION_URL ?? process.env.FACE_SERVICE_URL ?? "http://localhost:8000")
+  (process.env.FACE_RECOGNITION_URL ?? process.env.FACE_SERVICE_URL ?? DEFAULT_FACE_RECOGNITION_URL)
     .replace(/\/$/, "");
 const FACE_RECOGNITION_TIMEOUT_MS = Number(process.env.FACE_RECOGNITION_TIMEOUT_MS ?? 15000);
 

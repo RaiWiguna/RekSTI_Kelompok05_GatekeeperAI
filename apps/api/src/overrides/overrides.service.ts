@@ -175,7 +175,7 @@ export class OverridesService {
 
 async function dispatchOverrideToIot(action: "unlock" | "lock") {
   const normalizedBaseUrl = appEnv.IOT_GATEWAY_BASE_URL.replace(/\/$/, "");
-  const url = `${normalizedBaseUrl}/gateway/${action}`;
+  const url = `${normalizedBaseUrl}/v1/gateway/${action}`;
 
   try {
     const response = await fetch(url, {

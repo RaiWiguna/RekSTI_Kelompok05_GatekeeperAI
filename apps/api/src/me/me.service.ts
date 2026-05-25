@@ -3,11 +3,11 @@ import { AttendanceSource, AttendanceStatus, DayOfWeek, EnrollmentStatus, Overri
 import type { CameraScanInput, UpdateUserAccountInput } from "@gatekeeper/shared-validation";
 import type { TodayViewQueryInput } from "@gatekeeper/shared-validation";
 
-import { appEnv } from "../config/app-env";
 import { getCurrentJakartaDate, combineDateAndTime, formatDateOnly, parseDateOnly } from "../common/date/calendar";
 import { getDayOfWeekFromDate } from "../common/date/day-of-week";
 import { formatTimeString } from "../common/date/time";
 import { assertFound } from "../common/database/query-helpers";
+import { dispatchIotGatewayCommand } from "../common/http/iot-gateway-client";
 import {
   fromDayOfWeek,
   fromScheduleSource,
@@ -577,9 +577,7 @@ export class MeService {
     scheduleId: string;
     attendanceRecordId: string;
   }) {
-    const normalizedBaseUrl = appEnv.IOT_GATEWAY_BASE_URL.replace(/\/$/, "");
-    const url = `${normalizedBaseUrl}/v1/gateway/unlock`;
-    const dispatchResult = await dispatchIotCommand(url);
+    const dispatchResult = await dispatchIotGatewayCommand("unlock");
 
     const reason = [
       "Student camera attendance auto-unlock",
@@ -588,7 +586,7 @@ export class MeService {
       `attendance_record_id=${input.attendanceRecordId}`,
       input.roomCode ? `room_code=${input.roomCode}` : null,
       `iot_status=${dispatchResult.ok ? "sent" : "failed"}`,
-      `iot_url=${url}`,
+      `iot_url=${dispatchResult.url}`,
       dispatchResult.error ? `iot_error=${dispatchResult.error}` : null,
     ].filter(Boolean).join("; ").slice(0, 500);
 
@@ -612,7 +610,7 @@ export class MeService {
       status: override.status.toLowerCase() as "sent" | "failed",
       iot_gateway: {
         ok: dispatchResult.ok,
-        url,
+        url: dispatchResult.url,
         message: dispatchResult.error ?? "Command sent to IoT gateway",
       },
     };
@@ -709,34 +707,6 @@ function resolveTodayAttendanceStatus(
 
   const endAt = new Date(combineDateAndTime(date, schedule.endTime));
   return new Date() > endAt ? "absent" : "not_yet";
-}
-
-async function dispatchIotCommand(url: string) {
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        error: `IoT gateway returned HTTP ${response.status}`,
-      };
-    }
-
-    return {
-      ok: true,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Unable to reach IoT gateway",
-    };
-  }
 }
 
 function fromAttendanceStatusForHistory(status: AttendanceStatus) {

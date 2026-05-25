@@ -19,6 +19,8 @@ type HomeScreenDosenProps = {
   onNavigateToNotifications: () => void;
   onOverride: (action: "unlock" | "lock", roomId?: string) => void;
   isOverrideSubmitting?: boolean;
+  overrideMessage?: string | null;
+  overrideError?: string | null;
 };
 
 export function HomeScreenDosen({ 
@@ -27,11 +29,14 @@ export function HomeScreenDosen({
   activeTab, 
   onTabChange,
   lecturerTodayClasses,
+  lecturerManagedClasses,
   onNavigateToNotifications,
   onOverride,
   isOverrideSubmitting = false,
+  overrideMessage,
+  overrideError,
 }: HomeScreenDosenProps) {
-  const currentClass = toTodayClassSummary(lecturerTodayClasses[0]);
+  const currentClass = toClassSummary(lecturerTodayClasses[0] ?? lecturerManagedClasses[0]);
   const isDoorControlDisabled = isOverrideSubmitting || !currentClass.roomId;
 
   return (
@@ -317,6 +322,28 @@ export function HomeScreenDosen({
           background-color: #b91c1c;
         }
 
+        .door-feedback {
+          width: 100%;
+          margin-top: 14px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.35;
+        }
+
+        .door-feedback.success {
+          background: #dcfce7;
+          color: #166534;
+          border: 1px solid #86efac;
+        }
+
+        .door-feedback.error {
+          background: #fee2e2;
+          color: #991b1b;
+          border: 1px solid #fca5a5;
+        }
+
         @media (max-width: 1024px) {
           .dashboard-grid { grid-template-columns: 1fr; }
           .sidebar { width: 80px; }
@@ -427,6 +454,11 @@ export function HomeScreenDosen({
                 Kunci Pintu
               </button>
             </div>
+            {overrideError ? (
+              <div className="door-feedback error">{overrideError}</div>
+            ) : overrideMessage ? (
+              <div className="door-feedback success">{overrideMessage}</div>
+            ) : null}
           </div>
         </div>
       </main>
@@ -434,7 +466,7 @@ export function HomeScreenDosen({
   );
 }
 
-function toTodayClassSummary(classItem?: LecturerTodayClass) {
+function toClassSummary(classItem?: LecturerTodayClass | LecturerManagedClass) {
   if (!classItem) {
     return {
       courseCode: "II3230",

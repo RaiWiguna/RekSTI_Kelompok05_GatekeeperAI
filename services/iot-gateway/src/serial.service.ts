@@ -128,6 +128,10 @@ export class SerialService implements OnModuleInit, OnModuleDestroy {
     this.write("STATUS");
   }
 
+  isConnected(): boolean {
+    return this.state.connected;
+  }
+
   getState(): GatewayState {
     return { ...this.state };
   }

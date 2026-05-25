@@ -313,7 +313,10 @@ export class MeService {
         scheduleId: resolvedSchedule.id,
         occurrenceDate,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        checkInAt: true,
+      },
     });
 
     const record = existingRecord
@@ -328,7 +331,7 @@ export class MeService {
               : {
                   status: AttendanceStatus.PRESENT,
                   source: AttendanceSource.STUDENT_APP,
-                  checkInAt: now,
+                  checkInAt: existingRecord.checkInAt ?? now,
                 },
         })
       : await this.prisma.attendanceRecord.create({
@@ -344,7 +347,7 @@ export class MeService {
             checkOutAt: payload.action === "check_out" ? now : null,
           },
     });
-    const shouldUnlockRoom = payload.action === "check_in";
+    const shouldUnlockRoom = record.status === AttendanceStatus.PRESENT;
     const iotOverride = shouldUnlockRoom
       ? await this.dispatchStudentAttendanceUnlock({
           userId: user.userId,

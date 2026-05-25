@@ -1,0 +1,11 @@
+TypeError: fetch failed
+    at async proxyRequest (app\api\[...path]\route.ts:37:20)
+  35 |   const body = shouldHaveBody(request.method) ? await request.text() : undefined;
+  36 |
+> 37 |   const response = await fetch(targetUrl, {
+     |                    ^
+  38 |     method: request.method,
+  39 |     headers: buildProxyHeaders(request),
+  40 |     body, {
+  [cause]: [AggregateError: ] { code: 'ECONNREFUSED' }
+}

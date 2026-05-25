@@ -101,9 +101,9 @@ jobs:
           test -f "$ENV_FILE"
 
           docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d postgres redis
-          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build api migrate
+          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build api migrate face-recognition
           docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" run --rm migrate
-          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d api nginx
+          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d api face-recognition nginx
 
           if [ "$RUN_SEED" = "true" ]; then
             docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" run --rm api pnpm db:seed

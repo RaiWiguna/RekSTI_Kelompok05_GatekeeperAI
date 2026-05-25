@@ -42,6 +42,7 @@ Service yang dijalankan:
 - `redis`
 - `migrate` (one-shot untuk `prisma migrate deploy`)
 - `api`
+- `face-recognition` (FastAPI + `services/face-recognition/models/model.tflite`)
 - `nginx`
 
 ## 3) Verifikasi
@@ -72,13 +73,36 @@ Respon yang diharapkan:
 {"service":"api","status":"ok"}
 ```
 
+Face recognition health check publik:
+
+```powershell
+curl http://103.31.38.237/face/health
+```
+
+Respon yang diharapkan:
+
+```json
+{"service":"face-recognition","status":"ok","model_loaded":true,"model_type":"tflite"}
+```
+
 ## 4) Integrasi dengan Vercel (Frontend)
 
 Di project Vercel (`apps/web`) set:
-- `NEXT_PUBLIC_API_BASE_URL=https://api.example.com/v1`
-- `API_PROXY_TARGET=https://api.example.com/v1`
+- `NEXT_PUBLIC_API_BASE_URL=/api`
+- `API_PROXY_TARGET=http://103.31.38.237/v1`
+- `FACE_SERVICE_URL=http://103.31.38.237/face`
 
 Pastikan DNS `api.example.com` mengarah ke VPS.
+
+Dengan konfigurasi ini:
+
+```text
+Vercel web /api/face-recognition/detect
+-> FACE_SERVICE_URL (/face)
+-> Nginx VPS
+-> face-recognition container
+-> model.tflite
+```
 
 ## 5) Catatan Operasional
 

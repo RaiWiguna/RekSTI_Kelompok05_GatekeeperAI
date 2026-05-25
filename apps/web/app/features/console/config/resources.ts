@@ -33,6 +33,18 @@ const sourceOptions = [
   { value: "six", label: "SIX" },
 ];
 
+const attendanceStatusOptions = [
+  { value: "present", label: "Present" },
+  { value: "left", label: "Left" },
+  { value: "alpha", label: "Alpha" },
+];
+
+const attendanceSourceOptions = [
+  { value: "device", label: "Device" },
+  { value: "student_app", label: "Student App" },
+  { value: "manual", label: "Manual" },
+];
+
 export const resourceOrder: ResourceKey[] = [
   "users",
   "students",
@@ -43,6 +55,7 @@ export const resourceOrder: ResourceKey[] = [
   "classes",
   "schedules",
   "enrollments",
+  "attendanceRecords",
 ];
 
 export const resourceLabels: Record<ResourceKey, string> = {
@@ -55,6 +68,7 @@ export const resourceLabels: Record<ResourceKey, string> = {
   classes: "Classes",
   schedules: "Schedules",
   enrollments: "Enrollments",
+  attendanceRecords: "Attendance",
 };
 
 export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
@@ -354,6 +368,59 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
       { key: "student", label: "Student", render: (item) => nestedText(item.student, "full_name") },
       { key: "class", label: "Class", render: (item) => nestedText(item.class, "class_code") },
       { key: "status", label: "Status", render: (item) => text(item.status) },
+      { key: "updated_at", label: "Updated", render: (item) => shortDate(item.updated_at) },
+    ],
+  },
+  attendanceRecords: {
+    key: "attendanceRecords",
+    title: "Attendance Records",
+    singularLabel: "Attendance Record",
+    endpoint: "attendance-records",
+    query: { limit: "100" },
+    refreshTargets: ["attendanceRecords"],
+    canCreate: false,
+    canDelete: false,
+    updateTitle: "Update Attendance",
+    formHelp: "Select an attendance row to update its status, source, room, date, or check-in/check-out timestamps.",
+    emptyMessage: "No attendance records yet.",
+    fields: [
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        options: attendanceStatusOptions,
+      },
+      {
+        name: "source",
+        label: "Source",
+        type: "select",
+        options: attendanceSourceOptions,
+      },
+      { name: "occurrence_date", label: "Date", placeholder: "2026-05-25" },
+      {
+        name: "room_id",
+        label: "Room",
+        type: "select",
+        getOptions: (store) => buildOptions(store.rooms, "id", "name", "code"),
+      },
+      { name: "check_in_at", label: "Check In", placeholder: "2026-05-25T08:00:00.000Z" },
+      { name: "check_out_at", label: "Check Out", placeholder: "2026-05-25T09:40:00.000Z" },
+    ],
+    columns: [
+      { key: "student", label: "Student", render: (item) => nestedText(item.student, "full_name") },
+      { key: "class", label: "Class", render: (item) => nestedText(item.class, "class_code") },
+      {
+        key: "course",
+        label: "Course",
+        render: (item) => {
+          const classItem = item.class as { course?: { name?: unknown } } | null;
+          return text(classItem?.course?.name);
+        },
+      },
+      { key: "occurrence_date", label: "Date", render: (item) => text(item.occurrence_date) },
+      { key: "status", label: "Status", render: (item) => text(item.status) },
+      { key: "source", label: "Source", render: (item) => text(item.source) },
+      { key: "room", label: "Room", render: (item) => nestedText(item.room, "name") },
       { key: "updated_at", label: "Updated", render: (item) => shortDate(item.updated_at) },
     ],
   },

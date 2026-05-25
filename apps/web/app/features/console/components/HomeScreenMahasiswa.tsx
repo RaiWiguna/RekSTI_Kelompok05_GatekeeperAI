@@ -37,6 +37,16 @@ type CameraScanResponse = {
   source: "student_app";
   verification_result: "matched";
   face_probe_ref: string;
+  iot_override?: {
+    override_id: string;
+    action: "unlock";
+    status: "sent" | "failed";
+    iot_gateway: {
+      ok: boolean;
+      url: string;
+      message: string;
+    };
+  } | null;
 };
 
 type HomeScreenMahasiswaProps = {
@@ -210,8 +220,11 @@ export function HomeScreenMahasiswa({ accessToken, onLogout, activeTab, onTabCha
         },
       });
 
+      const iotMessage = attendance.iot_override
+        ? ` IoT unlock ${attendance.iot_override.status}: ${attendance.iot_override.iot_gateway.message}.`
+        : "";
       setScanMessage(
-        `${scanAction === "check_in" ? "Check-in" : "Check-out"} berhasil. Status: ${attendance.status}. Confidence: ${(matchedFace.confidence * 100).toFixed(1)}%.`,
+        `${scanAction === "check_in" ? "Check-in" : "Check-out"} berhasil. Status: ${attendance.status}. Confidence: ${(matchedFace.confidence * 100).toFixed(1)}%.${iotMessage}`,
       );
       const refreshedCourses = await apiRequest<TodayCourse[]>("me/schedules/today", { accessToken });
       setTodayCourses(refreshedCourses);

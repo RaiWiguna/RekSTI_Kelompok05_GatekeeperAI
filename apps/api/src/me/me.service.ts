@@ -1,8 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { AttendanceSource, AttendanceStatus, DayOfWeek, EnrollmentStatus } from "@prisma/client";
+import { AttendanceSource, AttendanceStatus, DayOfWeek, EnrollmentStatus, OverrideAction, OverrideStatus } from "@prisma/client";
 import type { CameraScanInput, UpdateUserAccountInput } from "@gatekeeper/shared-validation";
 import type { TodayViewQueryInput } from "@gatekeeper/shared-validation";
 
+import { appEnv } from "../config/app-env";
 import { getCurrentJakartaDate, combineDateAndTime, formatDateOnly, parseDateOnly } from "../common/date/calendar";
 import { getDayOfWeekFromDate } from "../common/date/day-of-week";
 import { formatTimeString } from "../common/date/time";
@@ -343,6 +344,17 @@ export class MeService {
             checkOutAt: payload.action === "check_out" ? now : null,
           },
     });
+    const shouldUnlockRoom = payload.action === "check_in";
+    const iotOverride = shouldUnlockRoom
+      ? await this.dispatchStudentAttendanceUnlock({
+          userId: user.userId,
+          roomId: resolvedSchedule.class.roomId,
+          roomCode: resolvedSchedule.class.room.code,
+          studentNim: linkedStudent.nim,
+          scheduleId: resolvedSchedule.id,
+          attendanceRecordId: record.id,
+        })
+      : null;
 
     return {
       attendance_record_id: record.id,
@@ -350,6 +362,7 @@ export class MeService {
       source: "student_app" as const,
       verification_result: "matched" as const,
       face_probe_ref: payload.face_probe_ref,
+      iot_override: iotOverride,
     };
   }
 
@@ -555,6 +568,55 @@ export class MeService {
       },
     });
   }
+
+  private async dispatchStudentAttendanceUnlock(input: {
+    userId: string;
+    roomId: string;
+    roomCode?: string;
+    studentNim: string;
+    scheduleId: string;
+    attendanceRecordId: string;
+  }) {
+    const normalizedBaseUrl = appEnv.IOT_GATEWAY_BASE_URL.replace(/\/$/, "");
+    const url = `${normalizedBaseUrl}/gateway/unlock`;
+    const dispatchResult = await dispatchIotCommand(url);
+
+    const reason = [
+      "Student camera attendance auto-unlock",
+      `student_nim=${input.studentNim}`,
+      `schedule_id=${input.scheduleId}`,
+      `attendance_record_id=${input.attendanceRecordId}`,
+      input.roomCode ? `room_code=${input.roomCode}` : null,
+      `iot_status=${dispatchResult.ok ? "sent" : "failed"}`,
+      `iot_url=${url}`,
+      dispatchResult.error ? `iot_error=${dispatchResult.error}` : null,
+    ].filter(Boolean).join("; ").slice(0, 500);
+
+    const override = await this.prisma.overrideLog.create({
+      data: {
+        userId: input.userId,
+        roomId: input.roomId,
+        action: OverrideAction.UNLOCK,
+        reason,
+        status: dispatchResult.ok ? OverrideStatus.SENT : OverrideStatus.FAILED,
+      },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    return {
+      override_id: override.id,
+      action: "unlock" as const,
+      status: override.status.toLowerCase() as "sent" | "failed",
+      iot_gateway: {
+        ok: dispatchResult.ok,
+        url,
+        message: dispatchResult.error ?? "Command sent to IoT gateway",
+      },
+    };
+  }
 }
 
 function mapLecturerClassSummary(
@@ -647,6 +709,34 @@ function resolveTodayAttendanceStatus(
 
   const endAt = new Date(combineDateAndTime(date, schedule.endTime));
   return new Date() > endAt ? "absent" : "not_yet";
+}
+
+async function dispatchIotCommand(url: string) {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: `IoT gateway returned HTTP ${response.status}`,
+      };
+    }
+
+    return {
+      ok: true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unable to reach IoT gateway",
+    };
+  }
 }
 
 function fromAttendanceStatusForHistory(status: AttendanceStatus) {

@@ -1,8 +1,10 @@
-import { Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import {
   attendanceRecordsListQuerySchema,
+  updateAttendanceRecordSchema,
   uuidParamSchema,
   type AttendanceRecordsListQueryInput,
+  type UpdateAttendanceRecordInput,
   type UuidParamInput,
 } from "@gatekeeper/shared-validation";
 
@@ -39,6 +41,18 @@ export class AttendanceRecordsController {
     params: UuidParamInput,
   ) {
     const data = await this.attendanceRecordsService.getById(user, params.id);
+    return successResponse(data);
+  }
+
+  @Patch(":id")
+  @Roles("admin", "system")
+  async update(
+    @Param(new ZodValidationPipe(uuidParamSchema))
+    params: UuidParamInput,
+    @Body(new ZodValidationPipe(updateAttendanceRecordSchema))
+    payload: UpdateAttendanceRecordInput,
+  ) {
+    const data = await this.attendanceRecordsService.update(params.id, payload);
     return successResponse(data);
   }
 

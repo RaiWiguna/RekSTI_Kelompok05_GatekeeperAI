@@ -7,7 +7,8 @@ export type ResourceKey =
   | "courses"
   | "classes"
   | "schedules"
-  | "enrollments";
+  | "enrollments"
+  | "attendanceRecords";
 
 export type ResourceItem = Record<string, unknown>;
 export type ResourceStore = Record<ResourceKey, ResourceItem[]>;
@@ -116,6 +117,8 @@ export type ResourceConfig = {
   query?: Record<string, string>;
   refreshTargets?: ResourceKey[];
   buildPayload?: (values: Record<string, string>) => Record<string, string>;
+  canCreate?: boolean;
+  canDelete?: boolean;
   fields: ResourceField[];
   columns: ResourceColumn[];
   emptyMessage: string;

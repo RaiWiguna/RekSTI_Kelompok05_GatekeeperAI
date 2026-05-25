@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
 import type { 
   LecturerClassRoster, 
@@ -18,6 +18,7 @@ type HomeScreenDosenProps = {
   lecturerRoster: LecturerClassRoster | null;
   onNavigateToNotifications: () => void;
   onOverride: (action: "unlock" | "lock", roomId?: string) => void;
+  isOverrideSubmitting?: boolean;
 };
 
 export function HomeScreenDosen({ 
@@ -28,10 +29,10 @@ export function HomeScreenDosen({
   lecturerTodayClasses,
   onNavigateToNotifications,
   onOverride,
+  isOverrideSubmitting = false,
 }: HomeScreenDosenProps) {
-  const [timer, setTimer] = useState("00:00:00");
-
   const currentClass = toTodayClassSummary(lecturerTodayClasses[0]);
+  const isDoorControlDisabled = isOverrideSubmitting || !currentClass.roomId;
 
   return (
     <div className="dashboard-wrapper">
@@ -289,7 +290,14 @@ export function HomeScreenDosen({
           margin-bottom: 25px;
         }
 
-        .open-door-button {
+        .door-actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          width: 100%;
+        }
+
+        .door-button {
           background-color: #112d4e;
           color: white;
           width: 100%;
@@ -298,6 +306,15 @@ export function HomeScreenDosen({
           font-weight: bold;
           cursor: pointer;
           border: none;
+        }
+
+        .door-button:disabled {
+          cursor: not-allowed;
+          opacity: 0.55;
+        }
+
+        .lock-door-button {
+          background-color: #b91c1c;
         }
 
         @media (max-width: 1024px) {
@@ -393,8 +410,23 @@ export function HomeScreenDosen({
             <p className="door-instruction">
               Gunakan tombol dibawah untuk membuka kunci pintu kelas tanpa melakukan pengenalan wajah. Pintu akan terkunci kembali dalam:
             </p>
-            <div className="countdown-timer">{timer}</div>
-            <button className="open-door-button" onClick={() => onOverride("unlock", currentClass.roomId)}>Buka Pintu</button>
+            <div className="countdown-timer">00:00:00</div>
+            <div className="door-actions">
+              <button
+                className="door-button open-door-button"
+                disabled={isDoorControlDisabled}
+                onClick={() => onOverride("unlock", currentClass.roomId)}
+              >
+                Buka Pintu
+              </button>
+              <button
+                className="door-button lock-door-button"
+                disabled={isDoorControlDisabled}
+                onClick={() => onOverride("lock", currentClass.roomId)}
+              >
+                Kunci Pintu
+              </button>
+            </div>
           </div>
         </div>
       </main>

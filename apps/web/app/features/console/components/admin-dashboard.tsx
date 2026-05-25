@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 import type { ResourceConfig, ResourceForms, ResourceItem, ResourceStore } from "../types";
@@ -17,6 +18,7 @@ type AdminDashboardProps = {
   onFormChange: (fieldName: string, value: string) => void;
   onQueryChange: (value: string) => void;
   onRefresh: () => void;
+  onUpdate: (id: string, values: Record<string, string>) => void;
 };
 
 export function AdminDashboard({
@@ -34,21 +36,95 @@ export function AdminDashboard({
   onFormChange,
   onQueryChange,
   onRefresh,
+  onUpdate,
 }: AdminDashboardProps) {
+  const [editingItem, setEditingItem] = useState<ResourceItem | null>(null);
+  const [editingValues, setEditingValues] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const isEditing = Boolean(editingItem);
+  const effectiveValues = isEditing ? editingValues : formValues;
+  const selectedLecturerId = effectiveValues.lecturer_id;
+  const linkedAccountForSelectedLecturer = useMemo(() => {
+    if (config.key !== "users" || !selectedLecturerId) {
+      return null;
+    }
+
+    return records.users.find((item) => item.lecturer_id === selectedLecturerId) ?? null;
+  }, [config.key, records.users, selectedLecturerId]);
+
+  function startEdit(item: ResourceItem) {
+    const values = config.fields.reduce((accumulator, field) => {
+      accumulator[field.name] = field.name === "password" ? "" : String(item[field.name] ?? "");
+      return accumulator;
+    }, {} as Record<string, string>);
+
+    setEditingItem(item);
+    setEditingValues(values);
+    setShowPassword(false);
+  }
+
+  function cancelEdit() {
+    setEditingItem(null);
+    setEditingValues({});
+    setShowPassword(false);
+  }
+
+  function handleValueChange(fieldName: string, value: string) {
+    if (isEditing) {
+      setEditingValues((current) => ({
+        ...current,
+        [fieldName]: value,
+      }));
+      return;
+    }
+
+    onFormChange(fieldName, value);
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (!isEditing) {
+      onCreate(event);
+      return;
+    }
+
+    event.preventDefault();
+    const id = String(editingItem?.id ?? "");
+    if (id) {
+      onUpdate(id, editingValues);
+    }
+  }
+
   return (
     <div className="grid two">
       <section className="panel">
         <div className="panel-header">
           <div>
             <p className="eyebrow">{config.title}</p>
-            <h2>Create Record</h2>
+            <h2>{isEditing ? config.updateTitle ?? `Update ${config.singularLabel}` : config.createTitle ?? "Create Record"}</h2>
           </div>
+          {isEditing ? (
+            <button className="button ghost" type="button" onClick={cancelEdit}>
+              Cancel
+            </button>
+          ) : null}
         </div>
         <div className="panel-body">
-          <form className="form-grid" onSubmit={onCreate}>
+          {config.formHelp ? <p className="form-note">{config.formHelp}</p> : null}
+          {config.key === "users" && !isEditing && linkedAccountForSelectedLecturer ? (
+            <div className="message">
+              This lecturer already has an account. Select the account row to update it.
+            </div>
+          ) : null}
+          <form className="form-grid" onSubmit={handleSubmit}>
             {config.fields.map((field) => {
               const options = field.getOptions ? field.getOptions(records) : field.options;
-              const fieldValue = formValues[field.name] ?? "";
+              const fieldValue = effectiveValues[field.name] ?? "";
+              const inputType =
+                field.type === "number"
+                  ? "number"
+                  : field.type === "password" && !showPassword
+                    ? "password"
+                    : "text";
 
               return (
                 <div className="field" key={field.name}>
@@ -57,7 +133,7 @@ export function AdminDashboard({
                     <select
                       id={`${config.key}-${field.name}`}
                       value={fieldValue}
-                      onChange={(event) => onFormChange(field.name, event.target.value)}
+                      onChange={(event) => handleValueChange(field.name, event.target.value)}
                     >
                       <option value="">Select...</option>
                       {(options ?? []).map((option) => (
@@ -66,19 +142,26 @@ export function AdminDashboard({
                         </option>
                       ))}
                     </select>
+                  ) : field.type === "password" ? (
+                    <div className="input-action">
+                      <input
+                        id={`${config.key}-${field.name}`}
+                        type={inputType}
+                        placeholder={isEditing ? "Leave blank to keep current password" : field.placeholder}
+                        value={fieldValue}
+                        onChange={(event) => handleValueChange(field.name, event.target.value)}
+                      />
+                      <button className="button ghost" type="button" onClick={() => setShowPassword((value) => !value)}>
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
                   ) : (
                     <input
                       id={`${config.key}-${field.name}`}
-                      type={
-                        field.type === "number"
-                          ? "number"
-                          : field.type === "password"
-                            ? "password"
-                            : "text"
-                      }
+                      type={inputType}
                       placeholder={field.placeholder}
                       value={fieldValue}
-                      onChange={(event) => onFormChange(field.name, event.target.value)}
+                      onChange={(event) => handleValueChange(field.name, event.target.value)}
                     />
                   )}
                 </div>
@@ -89,7 +172,11 @@ export function AdminDashboard({
             {message ? <div className="message">{message}</div> : null}
 
             <button className="button primary" disabled={submitting}>
-              {submitting ? "Saving..." : `Create ${config.singularLabel}`}
+              {submitting
+                ? "Saving..."
+                : isEditing
+                  ? `Update ${config.singularLabel}`
+                  : `Create ${config.singularLabel}`}
             </button>
           </form>
         </div>
@@ -138,14 +225,24 @@ export function AdminDashboard({
                           <td key={column.key}>{column.render(item)}</td>
                         ))}
                         <td>
-                          <button
-                            className="button danger"
-                            type="button"
-                            onClick={() => onDelete(id)}
-                            disabled={loading}
-                          >
-                            {config.deleteActionLabel ?? "Delete"}
-                          </button>
+                          <div className="row-actions">
+                            <button
+                              className="button"
+                              type="button"
+                              onClick={() => startEdit(item)}
+                              disabled={loading}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="button danger"
+                              type="button"
+                              onClick={() => onDelete(id)}
+                              disabled={loading}
+                            >
+                              {config.deleteActionLabel ?? "Delete"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

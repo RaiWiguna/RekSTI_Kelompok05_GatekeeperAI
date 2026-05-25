@@ -54,7 +54,7 @@ export const resourceLabels: Record<ResourceKey, string> = {
 export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
   users: {
     key: "users",
-    title: "Lecturer Accounts",
+    title: "Lecturer Account Setup",
     singularLabel: "Lecturer Account",
     endpoint: "users",
     query: { role: "lecturer" },
@@ -65,6 +65,9 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     }),
     emptyMessage: "No lecturer account records yet.",
     deleteActionLabel: "Deactivate",
+    createTitle: "Create or Link Account",
+    updateTitle: "Update Lecturer Account",
+    formHelp: "Choose a lecturer first. If an account already exists, select it from the table to update identity, status, linked lecturer, or reset its password.",
     fields: [
       {
         name: "lecturer_id",

@@ -199,6 +199,13 @@ button {
   gap: 14px;
 }
 
+.form-note {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .field {
   display: grid;
   gap: 6px;
@@ -222,6 +229,18 @@ button {
 .field select:focus {
   outline: 2px solid rgba(29, 107, 82, 0.12);
   border-color: var(--accent);
+}
+
+.input-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.input-action .button {
+  min-width: 72px;
+  padding-inline: 12px;
 }
 
 .muted {
@@ -281,6 +300,12 @@ button {
 .table td code {
   font-family: "IBM Plex Mono", "Cascadia Mono", monospace;
   font-size: 12px;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .badge {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -11,26 +11,7 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
-
-const CLASS_LIST = [
-  { id: 1, code: "II3230", name: "Keamanan Informasi", lecturer: "Ir. Budi Rahardjo, M.Sc., Ph.D.", attendance: "90.76 %" },
-  { id: 2, code: "WI2022", name: "Manajemen Proyek", lecturer: "Dr. Ir. Arry Akhmad Arman, M.T.", attendance: "50.81 %" },
-  { id: 3, code: "II3240", name: "Rekayasa Sistem TI", lecturer: "Prof. Dr. Ing. Ir. Suhardi, M.T.", attendance: "100 %" },
-  { id: 4, code: "IF3211", name: "Komputasi Domain Spesifik", lecturer: "Muhamad Koyimatu, S.Si., M.Si., M.Sc., Ph.D.", attendance: "87.77 %" },
-  { id: 5, code: "II3220", name: "Tata Kelola TI", lecturer: "Prof. Ir. Kridanto Surendro, M.Sc., Ph.D.", attendance: "76.34 %" },
-  { id: 6, code: "II4012", name: "AI for Business", lecturer: "Ir. Windy Gambetta, M.B.A.", attendance: "100 %" }
-];
-
-const ATTENDANCE_HISTORY = [
-  { id: 1, date: "Senin, 9 Februari 2026", status: "Attended", color: "#4ADE80" },
-  { id: 2, date: "Rabu, 11 Februari 2026", status: "Absent", color: "#F87171" },
-  { id: 3, date: "Senin, 16 Februari 2026", status: "Attended", color: "#4ADE80" },
-  { id: 4, date: "Rabu, 18 Februari 2026", status: "Attended", color: "#4ADE80" },
-  { id: 5, date: "Senin, 23 Februari 2026", status: "Absent", color: "#F87171" },
-  { id: 6, date: "Rabu, 25 Februari 2026", status: "Attended", color: "#4ADE80" },
-  // Tambahan dummy untuk simulasi beda bulan
-  { id: 7, date: "Senin, 2 Maret 2026", status: "Attended", color: "#4ADE80" } 
-];
+import { getStudentClasses, type StudentClassSummary } from "../api-client";
 
 const getMonthFromDateStr = (dateStr: string) => {
   const parts = dateStr.split(" ");
@@ -38,18 +19,24 @@ const getMonthFromDateStr = (dateStr: string) => {
   return "";
 };
 
-function CourseDetailScreen({ course, onBack }: { course: any, onBack: () => void }) {
+function CourseDetailScreen({ course, onBack }: { course: StudentClassSummary, onBack: () => void }) {
   // --- STATE UNTUK FILTER BULAN ---
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   // Dapatkan daftar bulan yang unik dari data history
-  const availableMonths = Array.from(new Set(ATTENDANCE_HISTORY.map(item => getMonthFromDateStr(item.date))));
+  const attendanceHistory = useMemo(() => course.attendance_history.map((item) => ({
+    ...item,
+    displayDate: formatDisplayDate(item.date),
+    label: item.status === "attended" ? "Attended" : "Absent",
+    color: item.status === "attended" ? "#4ADE80" : "#F87171",
+  })), [course.attendance_history]);
+  const availableMonths = Array.from(new Set(attendanceHistory.map(item => getMonthFromDateStr(item.displayDate))));
 
   // Filter data history berdasarkan bulan yang dipilih
   const filteredHistory = selectedMonth
-    ? ATTENDANCE_HISTORY.filter(item => getMonthFromDateStr(item.date) === selectedMonth)
-    : ATTENDANCE_HISTORY;
+    ? attendanceHistory.filter(item => getMonthFromDateStr(item.displayDate) === selectedMonth)
+    : attendanceHistory;
 
   return (
     <View style={styles.detailContainer}>
@@ -68,8 +55,8 @@ function CourseDetailScreen({ course, onBack }: { course: any, onBack: () => voi
           <View style={styles.shieldPlaceholder}>
             <MaterialCommunityIcons name="shield-lock" size={80} color="#4ADE80" />
           </View>
-          <Text style={styles.detailCourseTitle}>{course.code} {course.name}</Text>
-          <Text style={styles.detailLecturer}>{course.lecturer}</Text>
+          <Text style={styles.detailCourseTitle}>{course.course.code} {course.course.name}</Text>
+          <Text style={styles.detailLecturer}>{course.lecturer.full_name}</Text>
         </View>
 
         <View style={styles.historySection}>
@@ -85,11 +72,11 @@ function CourseDetailScreen({ course, onBack }: { course: any, onBack: () => voi
 
           {/* Render daftar histori yang sudah terfilter */}
           {filteredHistory.map((record) => (
-            <View key={record.id} style={styles.historyRow}>
-              <Text style={styles.historyDate}>{record.date}</Text>
+            <View key={`${record.schedule_id}-${record.date}`} style={styles.historyRow}>
+              <Text style={styles.historyDate}>{record.displayDate}</Text>
               <View style={styles.historyStatus}>
                 <View style={[styles.statusDot, { backgroundColor: record.color }]} />
-                <Text style={styles.historyStatusText}>{record.status}</Text>
+                <Text style={styles.historyStatusText}>{record.label}</Text>
               </View>
             </View>
           ))}
@@ -136,15 +123,39 @@ function CourseDetailScreen({ course, onBack }: { course: any, onBack: () => voi
 }
 
 export function ClassListScreen({ 
+  accessToken,
   onNavigateHome, 
   onNavigateToProfile,
   onNavigateToNotifications // Fungsi navigasi notifikasi diterima di sini
 }: { 
+  accessToken: string;
   onNavigateHome?: () => void; 
   onNavigateToProfile?: () => void; 
   onNavigateToNotifications?: () => void; // Tipe data didaftarkan agar TypeScript tidak error
 }){
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [selectedCourse, setSelectedCourse] = useState<StudentClassSummary | null>(null);
+  const [classes, setClasses] = useState<StudentClassSummary[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    getStudentClasses(accessToken)
+      .then((items) => {
+        if (isMounted) {
+          setClasses(items);
+          setLoadError(null);
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Gagal memuat kelas.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
 
   if (selectedCourse) {
     return <CourseDetailScreen course={selectedCourse} onBack={() => setSelectedCourse(null)} />;
@@ -174,16 +185,18 @@ export function ClassListScreen({
         </View>
 
         <View style={styles.listContainer}>
-          {CLASS_LIST.map((item) => (
-            <View key={item.id} style={styles.card}>
+          {loadError ? <Text style={styles.emptyStateText}>{loadError}</Text> : null}
+          {!loadError && classes.length === 0 ? <Text style={styles.emptyStateText}>Tidak ada kelas terdaftar.</Text> : null}
+          {classes.map((item) => (
+            <View key={item.class_id} style={styles.card}>
               <View style={styles.cardInfo}>
-                <Text style={styles.courseTitle}>{item.code} {item.name}</Text>
-                <Text style={styles.courseLecturer}>{item.lecturer}</Text>
+                <Text style={styles.courseTitle}>{item.course.code} {item.course.name}</Text>
+                <Text style={styles.courseLecturer}>{item.lecturer.full_name}</Text>
               </View>
 
               <View style={styles.cardAction}>
                 <View style={styles.attendanceBadge}>
-                  <Text style={styles.attendanceText}>{item.attendance}</Text>
+                  <Text style={styles.attendanceText}>{item.attendance_percentage.toFixed(2)} %</Text>
                 </View>
                 <Pressable style={styles.arrowButton} onPress={() => setSelectedCourse(item)}>
                   <Feather name="chevron-right" size={20} color="#FFFFFF" />
@@ -210,6 +223,16 @@ export function ClassListScreen({
       </View>
     </View>
   );
+}
+
+function formatDisplayDate(value: string) {
+  return new Date(`${value}T00:00:00.000Z`).toLocaleDateString("id-ID", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 const styles = StyleSheet.create({

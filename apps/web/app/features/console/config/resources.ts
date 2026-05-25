@@ -277,6 +277,8 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
         type: "select",
         options: dayOptions,
       },
+      { name: "start_date", label: "Start Date", placeholder: "2026-02-01" },
+      { name: "end_date", label: "End Date", placeholder: "2026-06-30" },
       { name: "start_time", label: "Start", placeholder: "08:00:00" },
       { name: "end_time", label: "End", placeholder: "09:40:00" },
       {
@@ -289,6 +291,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     columns: [
       { key: "class", label: "Class", render: (item) => nestedText(item.class, "class_code") },
       { key: "day_of_week", label: "Day", render: (item) => text(item.day_of_week) },
+      { key: "period", label: "Period", render: (item) => `${text(item.start_date)} - ${text(item.end_date)}` },
       { key: "start_time", label: "Start", render: (item) => text(item.start_time) },
       { key: "end_time", label: "End", render: (item) => text(item.end_time) },
     ],

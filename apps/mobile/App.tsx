@@ -91,11 +91,13 @@ export default function App() {
   if (appState === "home" && session) {
     return session.user.role === "lecturer" ? (
       <HomeScreenDosen
+        accessToken={session.accessToken}
         onLogout={handleLogout}
       />
     ) : (
       <HomeScreenMahasiswa
         userName={session.user.account_name}
+        accessToken={session.accessToken}
         onLogout={handleLogout}
       />
     );

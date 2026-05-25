@@ -2,17 +2,7 @@
 
 import React from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
-
-const CLASSES = [
-  { code: "II3230", name: "Keamanan Informasi", className: "Kelas 01", attendance: "90.76 %" },
-  { code: "II3230", name: "Keamanan Informasi", className: "Kelas 02", attendance: "50.81 %" },
-  { code: "II3230", name: "Keamanan Informasi", className: "Kelas 03", attendance: "66.66 %" },
-  { code: "II3240", name: "Rekayasa Sistem TI", className: "Kelas 01", attendance: "87.77 %" },
-  { code: "II3240", name: "Rekayasa Sistem TI", className: "Kelas 02", attendance: "76.34 %" },
-  { code: "II3240", name: "Rekayasa Sistem TI", className: "Kelas 03", attendance: "80 %" },
-  { code: "II4021", name: "Kriptografi", className: "Kelas 01", attendance: "87.77 %" },
-  { code: "II4021", name: "Kriptografi", className: "Kelas 02", attendance: "76.34 %" },
-];
+import type { LecturerManagedClass } from "../types";
 
 type ClassesDosenProps = {
   onLogout: () => void;
@@ -20,9 +10,11 @@ type ClassesDosenProps = {
   onTabChange: (tab: any) => void;
   user: { name: string; email: string };
   onNavigateToNotifications: () => void;
+  classes: LecturerManagedClass[];
+  onSelectClass?: (classId: string) => void;
 };
 
-export function ClassesDosen({ onLogout, activeTab, onTabChange, user, onNavigateToNotifications }: ClassesDosenProps) {
+export function ClassesDosen({ onLogout, activeTab, onTabChange, user, onNavigateToNotifications, classes, onSelectClass }: ClassesDosenProps) {
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -277,15 +269,21 @@ export function ClassesDosen({ onLogout, activeTab, onTabChange, user, onNavigat
         </header>
 
         <div className="classes-list">
-          {CLASSES.map((item, index) => (
-            <div key={index} className="class-card">
+          {classes.length === 0 ? <p>Tidak ada kelas yang terhubung ke akun dosen ini.</p> : null}
+          {classes.map((item) => (
+            <div key={item.class_id} className="class-card">
               <div className="class-info">
-                <div className="class-name">{item.code} {item.name}</div>
-                <div className="class-subtext">{item.className}</div>
+                <div className="class-name">{item.course.code} {item.course.name}</div>
+                <div className="class-subtext">{item.class_code} - {item.room.code}</div>
               </div>
               <div className="class-action">
-                <div className="attendance-badge">{item.attendance}</div>
-                <button className="detail-button" onClick={() => onTabChange('rincian-kelas-dosen')}>
+                <div className="attendance-badge">
+                  {item.enrollments_count === 0 ? "0.00 %" : `${(((item.present_count ?? 0) / item.enrollments_count) * 100).toFixed(2)} %`}
+                </div>
+                <button className="detail-button" onClick={() => {
+                  onSelectClass?.(item.class_id);
+                  onTabChange('rincian-kelas-dosen');
+                }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               </div>

@@ -3,7 +3,7 @@ import { AttendanceSource, AttendanceStatus, DayOfWeek, EnrollmentStatus } from 
 import type { CameraScanInput, UpdateUserAccountInput } from "@gatekeeper/shared-validation";
 import type { TodayViewQueryInput } from "@gatekeeper/shared-validation";
 
-import { getCurrentJakartaDate, combineDateAndTime } from "../common/date/calendar";
+import { getCurrentJakartaDate, combineDateAndTime, formatDateOnly, parseDateOnly } from "../common/date/calendar";
 import { getDayOfWeekFromDate } from "../common/date/day-of-week";
 import { formatTimeString } from "../common/date/time";
 import { assertFound } from "../common/database/query-helpers";
@@ -35,10 +35,13 @@ export class MeService {
     const linkedStudent = assertFound(student, "Student");
     const date = query.date ?? getCurrentJakartaDate();
     const dayOfWeek = toDayOfWeek(getDayOfWeekFromDate(date));
+    const occurrenceDate = parseDateOnly(date);
 
     const schedules = await this.prisma.schedule.findMany({
       where: {
         dayOfWeek,
+        startDate: { lte: occurrenceDate },
+        endDate: { gte: occurrenceDate },
         class: {
           enrollments: {
             some: {
@@ -79,6 +82,18 @@ export class MeService {
             },
           },
         },
+        attendanceRecords: {
+          where: {
+            studentId: linkedStudent.id,
+            occurrenceDate,
+          },
+          select: {
+            status: true,
+            checkInAt: true,
+            checkOutAt: true,
+          },
+          take: 1,
+        },
       },
     });
 
@@ -86,6 +101,8 @@ export class MeService {
       schedule_id: schedule.id,
       date,
       day_of_week: fromDayOfWeek(schedule.dayOfWeek),
+      start_date: formatDateOnly(schedule.startDate),
+      end_date: formatDateOnly(schedule.endDate),
       start_time: combineDateAndTime(date, schedule.startTime),
       end_time: combineDateAndTime(date, schedule.endTime),
       source: fromScheduleSource(schedule.source),
@@ -105,7 +122,9 @@ export class MeService {
         nidn: schedule.class.lecturer.nidn,
         full_name: schedule.class.lecturer.fullName,
       },
-      attendance_status: "not_checked_in",
+      attendance_status: resolveTodayAttendanceStatus(schedule, date),
+      check_in_at: schedule.attendanceRecords[0]?.checkInAt?.toISOString() ?? null,
+      check_out_at: schedule.attendanceRecords[0]?.checkOutAt?.toISOString() ?? null,
     }));
   }
 
@@ -127,6 +146,125 @@ export class MeService {
     const classes = await this.listLecturerClasses(linkedLecturer.id);
 
     return classes.map((classItem) => mapLecturerClassSummary(classItem, linkedLecturer));
+  }
+
+  async getStudentClasses(user: AuthUser) {
+    const student = await this.prisma.student.findFirst({
+      where: { userId: user.userId },
+      select: {
+        id: true,
+        nim: true,
+        fullName: true,
+      },
+    });
+    const linkedStudent = assertFound(student, "Student");
+    const currentDate = parseDateOnly(getCurrentJakartaDate());
+
+    const enrollments = await this.prisma.enrollment.findMany({
+      where: {
+        studentId: linkedStudent.id,
+        status: EnrollmentStatus.ACTIVE,
+      },
+      orderBy: {
+        class: {
+          classCode: "asc",
+        },
+      },
+      include: {
+        class: {
+          include: {
+            course: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+            lecturer: {
+              select: {
+                id: true,
+                nidn: true,
+                fullName: true,
+              },
+            },
+            room: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+            schedules: {
+              orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+            },
+            attendanceRecords: {
+              where: {
+                studentId: linkedStudent.id,
+              },
+              orderBy: {
+                occurrenceDate: "desc",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return enrollments.map((enrollment) => {
+      const expectedOccurrences = enrollment.class.schedules.flatMap((schedule) =>
+        listScheduleOccurrences(schedule, currentDate),
+      );
+      const recordByScheduleAndDate = new Map(
+        enrollment.class.attendanceRecords.map((record) => [
+          `${record.scheduleId ?? ""}:${formatDateOnly(record.occurrenceDate)}`,
+          record,
+        ]),
+      );
+      const attendanceHistory = expectedOccurrences
+        .map((occurrence) => {
+          const record = recordByScheduleAndDate.get(`${occurrence.schedule.id}:${occurrence.date}`);
+          return {
+            schedule_id: occurrence.schedule.id,
+            date: occurrence.date,
+            day_of_week: fromDayOfWeek(occurrence.schedule.dayOfWeek),
+            start_time: combineDateAndTime(occurrence.date, occurrence.schedule.startTime),
+            end_time: combineDateAndTime(occurrence.date, occurrence.schedule.endTime),
+            status: record ? fromAttendanceStatusForHistory(record.status) : "absent",
+            check_in_at: record?.checkInAt?.toISOString() ?? null,
+            check_out_at: record?.checkOutAt?.toISOString() ?? null,
+          };
+        })
+        .sort((left, right) => right.date.localeCompare(left.date));
+      const attendedCount = attendanceHistory.filter((item) => item.status === "attended").length;
+      const attendancePercentage = attendanceHistory.length === 0
+        ? 0
+        : Math.round((attendedCount / attendanceHistory.length) * 10000) / 100;
+
+      return {
+        class_id: enrollment.class.id,
+        class_code: enrollment.class.classCode,
+        semester: enrollment.class.semester,
+        academic_year: enrollment.class.academicYear,
+        course: enrollment.class.course,
+        lecturer: {
+          id: enrollment.class.lecturer.id,
+          nidn: enrollment.class.lecturer.nidn,
+          full_name: enrollment.class.lecturer.fullName,
+        },
+        room: enrollment.class.room,
+        schedules: enrollment.class.schedules.map((schedule) => ({
+          schedule_id: schedule.id,
+          day_of_week: fromDayOfWeek(schedule.dayOfWeek),
+          start_date: formatDateOnly(schedule.startDate),
+          end_date: formatDateOnly(schedule.endDate),
+          start_time: formatTimeString(schedule.startTime),
+          end_time: formatTimeString(schedule.endTime),
+          source: fromScheduleSource(schedule.source),
+        })),
+        attendance_percentage: attendancePercentage,
+        attendance_history: attendanceHistory,
+      };
+    });
   }
 
   async submitCameraScan(user: AuthUser, payload: CameraScanInput) {
@@ -167,10 +305,12 @@ export class MeService {
     }
 
     const now = new Date(payload.captured_at);
+    const occurrenceDate = parseDateOnly(payload.captured_at.slice(0, 10));
     const existingRecord = await this.prisma.attendanceRecord.findFirst({
       where: {
         studentId: linkedStudent.id,
         scheduleId: resolvedSchedule.id,
+        occurrenceDate,
       },
       select: { id: true },
     });
@@ -195,6 +335,7 @@ export class MeService {
             studentId: linkedStudent.id,
             classId: resolvedSchedule.classId,
             scheduleId: resolvedSchedule.id,
+            occurrenceDate,
             roomId: resolvedSchedule.class.roomId,
             status: payload.action === "check_out" ? AttendanceStatus.LEFT : AttendanceStatus.PRESENT,
             source: AttendanceSource.STUDENT_APP,
@@ -341,6 +482,7 @@ export class MeService {
   }
 
   private async listLecturerClasses(lecturerId: string, dayOfWeek?: DayOfWeek) {
+    const currentDate = parseDateOnly(getCurrentJakartaDate());
     return this.prisma.class.findMany({
       where: {
         lecturerId,
@@ -349,6 +491,8 @@ export class MeService {
               schedules: {
                 some: {
                   dayOfWeek,
+                  startDate: { lte: currentDate },
+                  endDate: { gte: currentDate },
                 },
               },
             }
@@ -379,6 +523,8 @@ export class MeService {
             ? {
                 where: {
                   dayOfWeek,
+                  startDate: { lte: currentDate },
+                  endDate: { gte: currentDate },
                 },
               }
             : {}),
@@ -386,6 +532,8 @@ export class MeService {
           select: {
             id: true,
             dayOfWeek: true,
+            startDate: true,
+            endDate: true,
             startTime: true,
             endTime: true,
             source: true,
@@ -394,6 +542,14 @@ export class MeService {
         _count: {
           select: {
             enrollments: true,
+          },
+        },
+        attendanceRecords: {
+          where: {
+            occurrenceDate: currentDate,
+          },
+          select: {
+            status: true,
           },
         },
       },
@@ -420,6 +576,8 @@ function mapLecturerClassSummary(
     schedules: Array<{
       id: string;
       dayOfWeek: DayOfWeek;
+      startDate: Date;
+      endDate: Date;
       startTime: Date;
       endTime: Date;
       source: Parameters<typeof fromScheduleSource>[0];
@@ -427,6 +585,9 @@ function mapLecturerClassSummary(
     _count: {
       enrollments: number;
     };
+    attendanceRecords: Array<{
+      status: AttendanceStatus;
+    }>;
   },
   lecturer: {
     id: string;
@@ -435,6 +596,10 @@ function mapLecturerClassSummary(
   },
   date?: string,
 ) {
+  const presentCount = classItem.attendanceRecords.filter(
+    (record) => record.status === AttendanceStatus.PRESENT || record.status === AttendanceStatus.LEFT,
+  ).length;
+
   return {
     class_id: classItem.id,
     class_code: classItem.classCode,
@@ -450,6 +615,8 @@ function mapLecturerClassSummary(
     schedules: classItem.schedules.map((schedule) => ({
       schedule_id: schedule.id,
       day_of_week: fromDayOfWeek(schedule.dayOfWeek),
+      start_date: formatDateOnly(schedule.startDate),
+      end_date: formatDateOnly(schedule.endDate),
       start_time: date
         ? combineDateAndTime(date, schedule.startTime)
         : formatTimeString(schedule.startTime),
@@ -459,5 +626,62 @@ function mapLecturerClassSummary(
       source: fromScheduleSource(schedule.source),
     })),
     enrollments_count: classItem._count.enrollments,
+    present_count: presentCount,
+    absent_count: Math.max(classItem._count.enrollments - presentCount, 0),
   };
+}
+
+function resolveTodayAttendanceStatus(
+  schedule: {
+    endTime: Date;
+    attendanceRecords: Array<{
+      status: AttendanceStatus;
+    }>;
+  },
+  date: string,
+) {
+  const record = schedule.attendanceRecords[0];
+  if (record) {
+    return fromAttendanceStatusForHistory(record.status);
+  }
+
+  const endAt = new Date(combineDateAndTime(date, schedule.endTime));
+  return new Date() > endAt ? "absent" : "not_yet";
+}
+
+function fromAttendanceStatusForHistory(status: AttendanceStatus) {
+  return status === AttendanceStatus.PRESENT || status === AttendanceStatus.LEFT
+    ? "attended"
+    : "absent";
+}
+
+function listScheduleOccurrences(
+  schedule: {
+    id: string;
+    dayOfWeek: DayOfWeek;
+    startDate: Date;
+    endDate: Date;
+    startTime: Date;
+    endTime: Date;
+  },
+  currentDate: Date,
+) {
+  const endDate = schedule.endDate < currentDate ? schedule.endDate : currentDate;
+  const occurrences: Array<{
+    date: string;
+    schedule: typeof schedule;
+  }> = [];
+  const cursor = new Date(schedule.startDate);
+
+  while (cursor <= endDate) {
+    if (toDayOfWeek(getDayOfWeekFromDate(formatDateOnly(cursor))) === schedule.dayOfWeek) {
+      occurrences.push({
+        date: formatDateOnly(cursor),
+        schedule,
+      });
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return occurrences;
 }

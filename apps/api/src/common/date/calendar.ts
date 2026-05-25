@@ -16,3 +16,11 @@ export function getCurrentJakartaDate() {
 export function combineDateAndTime(date: string, time: Date) {
   return `${date}T${formatTimeString(time)}+07:00`;
 }
+
+export function parseDateOnly(date: string) {
+  return new Date(`${date}T00:00:00.000Z`);
+}
+
+export function formatDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
+}

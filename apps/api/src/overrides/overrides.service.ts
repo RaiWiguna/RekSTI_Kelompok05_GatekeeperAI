@@ -1,6 +1,8 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
+import { OverrideStatus } from "@prisma/client";
 import type { CreateOverrideInput, OverridesListQueryInput } from "@gatekeeper/shared-validation";
 
+import { appEnv } from "../config/app-env";
 import type { AuthUser } from "../common/auth/auth-user.interface";
 import { mapPrismaError } from "../common/database/prisma-error";
 import {
@@ -17,14 +19,32 @@ export class OverridesService {
 
   async create(user: AuthUser, payload: CreateOverrideInput) {
     await this.assertCanOverrideRoom(user, payload.room_id);
+    const room = await this.prisma.room.findUnique({
+      where: { id: payload.room_id },
+      include: {
+        devices: {
+          orderBy: { createdAt: "asc" },
+          take: 1,
+        },
+      },
+    });
+    const action = toOverrideAction(payload.action);
+    const dispatchResult = await dispatchOverrideToIot(payload.action);
 
     try {
       const override = await this.prisma.overrideLog.create({
         data: {
           userId: user.userId,
           roomId: payload.room_id,
-          action: toOverrideAction(payload.action),
-          reason: payload.reason,
+          action,
+          reason: buildOverrideReason(payload.reason, {
+            gatewayStatus: dispatchResult.ok ? "sent" : "failed",
+            gatewayUrl: dispatchResult.url,
+            gatewayError: dispatchResult.error,
+            roomCode: room?.code,
+            deviceCode: room?.devices[0]?.deviceCode,
+          }),
+          status: dispatchResult.ok ? OverrideStatus.SENT : OverrideStatus.FAILED,
         },
         include: overrideInclude,
       });
@@ -34,6 +54,11 @@ export class OverridesService {
         room_id: override.roomId,
         action: fromOverrideAction(override.action),
         status: fromOverrideStatus(override.status),
+        iot_gateway: {
+          ok: dispatchResult.ok,
+          url: dispatchResult.url,
+          message: dispatchResult.error ?? "Command sent to IoT gateway",
+        },
       };
     } catch (error) {
       mapPrismaError(error, "Override");
@@ -134,6 +159,61 @@ export class OverridesService {
       },
     };
   }
+}
+
+async function dispatchOverrideToIot(action: "unlock" | "lock") {
+  const normalizedBaseUrl = appEnv.IOT_GATEWAY_BASE_URL.replace(/\/$/, "");
+  const url = `${normalizedBaseUrl}/gateway/${action}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        url,
+        error: `IoT gateway returned HTTP ${response.status}`,
+      };
+    }
+
+    return {
+      ok: true,
+      url,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      url,
+      error: error instanceof Error ? error.message : "Unable to reach IoT gateway",
+    };
+  }
+}
+
+function buildOverrideReason(
+  reason: string,
+  metadata: {
+    gatewayStatus: "sent" | "failed";
+    gatewayUrl: string;
+    gatewayError: string | null;
+    roomCode?: string;
+    deviceCode?: string;
+  },
+) {
+  const suffix = [
+    `iot_status=${metadata.gatewayStatus}`,
+    `iot_url=${metadata.gatewayUrl}`,
+    metadata.roomCode ? `room_code=${metadata.roomCode}` : null,
+    metadata.deviceCode ? `device_code=${metadata.deviceCode}` : null,
+    metadata.gatewayError ? `iot_error=${metadata.gatewayError}` : null,
+  ].filter(Boolean).join("; ");
+
+  return `${reason} [${suffix}]`.slice(0, 500);
 }
 
 const overrideInclude = {

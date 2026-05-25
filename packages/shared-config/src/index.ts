@@ -23,6 +23,7 @@ export const integrationEnvSchema = z.object({
   REDIS_URL: z.string().min(1).default("redis://localhost:56379"),
   SIX_SYNC_CRON: z.string().min(1).default("0 0 * * *"),
   FACE_SERVICE_URL: z.string().url().default("http://localhost:8000"),
+  IOT_GATEWAY_BASE_URL: z.string().url().default("http://localhost:3002/v1"),
 });
 
 export const apiEnvSchema = runtimeEnvSchema

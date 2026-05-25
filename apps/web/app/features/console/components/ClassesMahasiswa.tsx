@@ -1,67 +1,59 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
+import { apiRequest } from "../../../lib/api-client";
 
-const CLASSES = [
-  {
-    code: "II3230",
-    name: "Keamanan Informasi",
-    lecturer: "Ir. Budi Rahardjo, M.Sc., Ph.D.",
-    attendance: "90.76%",
-  },
-  {
-    code: "WI2022",
-    name: "Manajemen Proyek",
-    lecturer: "Dr. Ir. Arry Akhmad Arman, M.T.",
-    attendance: "50.81%",
-  },
-  {
-    code: "II3240",
-    name: "Rekayasa Sistem TI",
-    lecturer: "Prof. Dr. Ing. Ir. Suhardi, M.T.",
-    attendance: "100%",
-  },
-  {
-    code: "IF3211",
-    name: "Komputasi Domain Spesifik",
-    lecturer: "Muhamad Koyimatu, S.Si., M.Si., M.Sc., Ph.D.",
-    attendance: "87.77%",
-  },
-  {
-    code: "II3220",
-    name: "Tata Kelola TI",
-    lecturer: "Prof. Ir. Kridanto Surendro, M.Sc., Ph.D.",
-    attendance: "76.34%",
-  },
-  {
-    code: "II4012",
-    name: "AI for Business",
-    lecturer: "Ir. Windy Gambetta, M.B.A.",
-    attendance: "100%",
-  },
-  {
-    code: "II4021",
-    name: "Kriptografi",
-    lecturer: "Prof. Dr. Ir. Rinaldi, M.T.",
-    attendance: "100%",
-  },
-  {
-    code: "II4024",
-    name: "Hukum Siber",
-    lecturer: "Dr. Ir. Ian Josef Matheus Edward, M.T.",
-    attendance: "100%",
-  },
-];
+export type StudentClassSummary = {
+  class_id: string;
+  course: {
+    code: string;
+    name: string;
+  };
+  lecturer: {
+    full_name: string;
+  };
+  attendance_percentage: number;
+  attendance_history: Array<{
+    schedule_id: string;
+    date: string;
+    status: "attended" | "absent";
+  }>;
+};
 
 type ClassesMahasiswaProps = {
+  accessToken: string;
   onLogout: () => void;
   activeTab: string;
   onTabChange: (tab: "dashboard" | "kelas" | "profil" | "rincian-kelas") => void;
   onNavigateToNotifications: () => void;
+  onSelectClass?: (classItem: StudentClassSummary) => void;
 };
 
-export function ClassesMahasiswa({ onLogout, activeTab, onTabChange, onNavigateToNotifications }: ClassesMahasiswaProps) {
+export function ClassesMahasiswa({ accessToken, onLogout, activeTab, onTabChange, onNavigateToNotifications, onSelectClass }: ClassesMahasiswaProps) {
+  const [classes, setClasses] = useState<StudentClassSummary[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiRequest<StudentClassSummary[]>("me/classes", { accessToken })
+      .then((items) => {
+        if (isMounted) {
+          setClasses(items);
+          setLoadError(null);
+        }
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setLoadError(error instanceof Error ? error.message : "Unable to load classes.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -326,15 +318,20 @@ export function ClassesMahasiswa({ onLogout, activeTab, onTabChange, onNavigateT
         </header>
 
         <div className="classes-list">
-          {CLASSES.map((item, index) => (
-            <div key={index} className="class-card">
+          {loadError ? <p>{loadError}</p> : null}
+          {!loadError && classes.length === 0 ? <p>Tidak ada kelas terdaftar.</p> : null}
+          {classes.map((item) => (
+            <div key={item.class_id} className="class-card">
               <div className="class-info">
-                <div className="class-name">{item.code} {item.name}</div>
-                <div className="class-lecturer">{item.lecturer}</div>
+                <div className="class-name">{item.course.code} {item.course.name}</div>
+                <div className="class-lecturer">{item.lecturer.full_name}</div>
               </div>
               <div className="class-action">
-                <div className="attendance-badge">{item.attendance}</div>
-                <button className="detail-button" onClick={() => onTabChange('rincian-kelas')}>
+                <div className="attendance-badge">{item.attendance_percentage.toFixed(2)}%</div>
+                <button className="detail-button" onClick={() => {
+                  onSelectClass?.(item);
+                  onTabChange('rincian-kelas');
+                }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
               </div>

@@ -12,6 +12,14 @@ import {
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import {
+  getLecturerClasses,
+  getLecturerClassRoster,
+  getLecturerTodayClasses,
+  sendDoorOverride,
+  type LecturerClassRoster,
+  type LecturerClassSummary,
+} from "../api-client";
 
 // --- DATA MOCKUP ---
 const INITIAL_STUDENTS = [
@@ -49,6 +57,12 @@ const NOTIFICATIONS_DOSEN = [
   { id: 2, title: "Sistem Terkunci Kembali", desc: "Pintu Ruang 7601 telah otomatis terkunci kembali.", time: "1 menit yang lalu", icon: "door-closed", color: "#F87171" },
   { id: 3, title: "Akses Pintu Berhasil", desc: "Pintu Ruang 7601 berhasil dibuka manual.", time: "2 jam yang lalu", icon: "door-open", color: "#4ADE80" },
 ];
+
+type LecturerRosterStudent = {
+  id: string;
+  name: string;
+  status: string;
+};
 
 // --- FUNGSI BANTUAN ---
 const getStatusColor = (status: string) => {
@@ -106,12 +120,18 @@ function NotificationScreenDosen({ onBack }: { onBack: () => void }) {
 // =======================================================
 // KOMPONEN 1: HALAMAN DAFTAR MAHASISWA (PANTAU KEHADIRAN)
 // =======================================================
-function CourseAttendanceDetailScreen({ onBack }: { onBack: () => void }) {
-  const [students, setStudents] = useState(INITIAL_STUDENTS);
+function CourseAttendanceDetailScreen({ roster, onBack }: { roster: LecturerClassRoster | null; onBack: () => void }) {
+  const [students, setStudents] = useState<LecturerRosterStudent[]>(
+    roster?.students.map((item) => ({
+      id: item.student.id,
+      name: item.student.full_name,
+      status: item.status === "active" ? "Belum Hadir" : "Alpha",
+    })) ?? INITIAL_STUDENTS.map((student) => ({ ...student, id: String(student.id) })),
+  );
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
-  const openDropdown = (id: number) => {
+  const openDropdown = (id: string) => {
     setSelectedStudentId(id);
     setModalVisible(true);
   };
@@ -140,8 +160,12 @@ function CourseAttendanceDetailScreen({ onBack }: { onBack: () => void }) {
 
       <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
         <View style={styles.detailCourseInfo}>
-          <Text style={styles.detailCourseCode}>II3230 Keamanan Informasi</Text>
-          <Text style={styles.detailCourseClass}>Kelas 01 - 7601</Text>
+          <Text style={styles.detailCourseCode}>
+            {roster ? `${roster.course.code} ${roster.course.name}` : "Kelas belum tersedia"}
+          </Text>
+          <Text style={styles.detailCourseClass}>
+            {roster ? `${roster.class_code} - ${roster.room.code}` : "-"}
+          </Text>
         </View>
 
         <View style={styles.studentList}>
@@ -284,12 +308,16 @@ function ClassListScreenDosen({
   onNavigateHome,
   onNavigateToHistory,
   onNavigateToProfile,
-  onNavigateToNotifications
+  onNavigateToNotifications,
+  classes,
+  onSelectClass
 }: {
   onNavigateHome: () => void;
   onNavigateToHistory: () => void;
   onNavigateToProfile: () => void;
   onNavigateToNotifications: () => void;
+  classes: LecturerClassSummary[];
+  onSelectClass: (classId: string) => void;
 }) {
   return (
     <View style={styles.container}>
@@ -315,18 +343,26 @@ function ClassListScreenDosen({
         </View>
 
         <View style={styles.classListContainer}>
-          {DOSEN_CLASSES.map((item) => (
-            <View key={item.id} style={styles.classItemCard}>
+          {classes.length === 0 ? (
+            <Text style={{ color: "#64748B", textAlign: "center" }}>Tidak ada kelas yang terhubung.</Text>
+          ) : null}
+          {classes.map((item) => (
+            <View key={item.class_id} style={styles.classItemCard}>
               <View style={styles.classItemLeft}>
-                <Text style={styles.classItemTitle}>{item.code} {item.name}</Text>
-                <Text style={styles.classItemSubtitle}>{item.classCode}</Text>
+                <Text style={styles.classItemTitle}>{item.course.code} {item.course.name}</Text>
+                <Text style={styles.classItemSubtitle}>{item.class_code} - {item.room.code}</Text>
               </View>
 
               <View style={styles.classItemRight}>
                 <View style={styles.classItemBadge}>
-                  <Text style={styles.classItemBadgeText}>{item.attendance}</Text>
+                  <Text style={styles.classItemBadgeText}>
+                    {item.enrollments_count === 0 ? "0.00 %" : `${(((item.present_count ?? 0) / item.enrollments_count) * 100).toFixed(2)} %`}
+                  </Text>
                 </View>
-                <Pressable style={styles.classItemArrow} onPress={onNavigateToHistory}>
+                <Pressable style={styles.classItemArrow} onPress={() => {
+                  onSelectClass(item.class_id);
+                  onNavigateToHistory();
+                }}>
                   <Feather name="chevron-right" size={20} color="#FFFFFF" />
                 </Pressable>
               </View>
@@ -423,12 +459,16 @@ function HomeScreenDosenContent({
   onNavigateToAttendance,
   onNavigateToClasses,
   onNavigateToProfile,
-  onNavigateToNotifications
+  onNavigateToNotifications,
+  todayClasses,
+  onOpenDoor
 }: { 
   onNavigateToAttendance: () => void;
   onNavigateToClasses: () => void;
   onNavigateToProfile: () => void;
   onNavigateToNotifications: () => void;
+  todayClasses: LecturerClassSummary[];
+  onOpenDoor: (roomId?: string) => void;
 }) {
   const [doorTimeLeft, setDoorTimeLeft] = useState(60);
 
@@ -448,10 +488,8 @@ function HomeScreenDosenContent({
     return `00:${formattedMinutes}:${formattedSeconds}`;
   };
 
-  const handleOpenDoor = () => {
-    Alert.alert("Pintu Terbuka", "Akses pintu kelas berhasil dibuka secara manual.");
-    setDoorTimeLeft(60); 
-  };
+  const currentClass = todayClasses[0];
+  const handleOpenDoor = () => onOpenDoor(currentClass?.room.id);
 
   return (
     <View style={styles.container}>
@@ -479,8 +517,12 @@ function HomeScreenDosenContent({
           <Text style={styles.sectionTitle}>Today’s Class</Text>
 
           <View style={styles.courseInfoContainer}>
-            <Text style={styles.courseTitle}>II3230 Keamanan Informasi</Text>
-            <Text style={styles.courseSubtitle}>Kelas 01 - 7601</Text>
+            <Text style={styles.courseTitle}>
+              {currentClass ? `${currentClass.course.code} ${currentClass.course.name}` : "Tidak ada kelas hari ini"}
+            </Text>
+            <Text style={styles.courseSubtitle}>
+              {currentClass ? `${currentClass.class_code} - ${currentClass.room.code}` : "-"}
+            </Text>
           </View>
 
           <View style={styles.statMainCard}>
@@ -488,17 +530,17 @@ function HomeScreenDosenContent({
               <Text style={styles.statLabelMain}>Total Mahasiswa</Text>
               <Ionicons name="school-outline" size={20} color="#112D4E" />
             </View>
-            <Text style={styles.statValueMain}>72</Text>
+            <Text style={styles.statValueMain}>{currentClass?.enrollments_count ?? 0}</Text>
           </View>
 
           <View style={styles.statRowContainer}>
             <View style={styles.statHalfCard}>
               <Text style={styles.statLabelHalf}>Total Hadir</Text>
-              <Text style={styles.statValueHalf}>50</Text>
+              <Text style={styles.statValueHalf}>{currentClass?.present_count ?? 0}</Text>
             </View>
             <View style={styles.statHalfCard}>
               <Text style={styles.statLabelHalf}>Total Belum Hadir</Text>
-              <Text style={styles.statValueHalf}>22</Text>
+              <Text style={styles.statValueHalf}>{currentClass?.absent_count ?? 0}</Text>
             </View>
           </View>
 
@@ -551,9 +593,60 @@ function HomeScreenDosenContent({
 // =======================================================
 // MAIN EXPORT CONTROLLER
 // =======================================================
-export function HomeScreenDosen({ onLogout }: { onLogout?: () => void }) {
+export function HomeScreenDosen({ accessToken, onLogout }: { accessToken: string; onLogout?: () => void }) {
   const [currentScreen, setCurrentScreen] = useState<"home" | "attendance" | "classes" | "history" | "profile" | "notifications">("home");
   const [previousScreen, setPreviousScreen] = useState<"home" | "classes">("home");
+  const [todayClasses, setTodayClasses] = useState<LecturerClassSummary[]>([]);
+  const [classes, setClasses] = useState<LecturerClassSummary[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [roster, setRoster] = useState<LecturerClassRoster | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([getLecturerTodayClasses(accessToken), getLecturerClasses(accessToken)])
+      .then(([today, managed]) => {
+        if (!isMounted) return;
+        setTodayClasses(today);
+        setClasses(managed);
+        setSelectedClassId((current) => current ?? today[0]?.class_id ?? managed[0]?.class_id ?? null);
+      })
+      .catch((error) => Alert.alert("Data dosen gagal dimuat", error instanceof Error ? error.message : "Gagal memuat data dosen."));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken]);
+
+  useEffect(() => {
+    if (!selectedClassId) return;
+    let isMounted = true;
+    getLecturerClassRoster(accessToken, selectedClassId)
+      .then((nextRoster) => {
+        if (isMounted) setRoster(nextRoster);
+      })
+      .catch((error) => Alert.alert("Roster gagal dimuat", error instanceof Error ? error.message : "Gagal memuat roster."));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, selectedClassId]);
+
+  const handleOpenDoor = async (roomId?: string) => {
+    if (!roomId) {
+      Alert.alert("Override gagal", "Tidak ada ruangan aktif untuk override.");
+      return;
+    }
+
+    try {
+      const response = await sendDoorOverride(accessToken, roomId, "unlock");
+      Alert.alert(
+        response.status === "sent" ? "Perintah dikirim" : "Override gagal",
+        response.iot_gateway?.message ?? "Perintah dikirim ke IoT gateway.",
+      );
+    } catch (error) {
+      Alert.alert("Override gagal", error instanceof Error ? error.message : "Tidak dapat mengirim override.");
+    }
+  };
 
   const goToAttendance = () => {
     if (currentScreen !== "attendance") setPreviousScreen(currentScreen as "home" | "classes");
@@ -578,7 +671,7 @@ export function HomeScreenDosen({ onLogout }: { onLogout?: () => void }) {
   }
 
   if (currentScreen === "attendance") {
-    return <CourseAttendanceDetailScreen onBack={() => setCurrentScreen(previousScreen)} />;
+    return <CourseAttendanceDetailScreen roster={roster} onBack={() => setCurrentScreen(previousScreen)} />;
   }
   
   if (currentScreen === "history") {
@@ -592,6 +685,8 @@ export function HomeScreenDosen({ onLogout }: { onLogout?: () => void }) {
         onNavigateToHistory={goToHistory}
         onNavigateToProfile={() => setCurrentScreen("profile")}
         onNavigateToNotifications={goToNotifications}
+        classes={classes}
+        onSelectClass={setSelectedClassId}
       />
     );
   }
@@ -612,6 +707,8 @@ export function HomeScreenDosen({ onLogout }: { onLogout?: () => void }) {
       onNavigateToClasses={() => setCurrentScreen("classes")} 
       onNavigateToProfile={() => setCurrentScreen("profile")}
       onNavigateToNotifications={goToNotifications}
+      todayClasses={todayClasses}
+      onOpenDoor={handleOpenDoor}
     />
   );
 }

@@ -2,15 +2,7 @@
 
 import React from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
-
-const ATTENDANCE_HISTORY = [
-  { date: "Senin, 9 Februari 2026" },
-  { date: "Rabu, 11 Februari 2026" },
-  { date: "Senin, 16 Februari 2026" },
-  { date: "Rabu, 18 Februari 2026" },
-  { date: "Senin, 23 Februari 2026" },
-  { date: "Rabu, 25 Februari 2026" },
-];
+import type { LecturerManagedClass } from "../types";
 
 type RincianKelasDosenProps = {
   onLogout: () => void;
@@ -18,9 +10,12 @@ type RincianKelasDosenProps = {
   onTabChange: (tab: any) => void;
   user: { name: string; email: string };
   onNavigateToNotifications: () => void;
+  classItem: LecturerManagedClass | null;
 };
 
-export function RincianKelasDosen({ onLogout, activeTab, onTabChange, user, onNavigateToNotifications }: RincianKelasDosenProps) {
+export function RincianKelasDosen({ onLogout, activeTab, onTabChange, user, onNavigateToNotifications, classItem }: RincianKelasDosenProps) {
+  const scheduleRows = classItem?.schedules ?? [];
+
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -166,8 +161,10 @@ export function RincianKelasDosen({ onLogout, activeTab, onTabChange, user, onNa
           
           <img src={gatekeeperLogo.src} alt="Shield Icon" className="illustration" />
 
-          <div className="class-title">II3230 Keamanan Informasi</div>
-          <div className="class-subtitle">Kelas 01</div>
+          <div className="class-title">
+            {classItem ? `${classItem.course.code} ${classItem.course.name}` : "Pilih kelas dari daftar kelas"}
+          </div>
+          <div className="class-subtitle">{classItem ? `${classItem.class_code} - ${classItem.room.code}` : "-"}</div>
         </div>
 
         <div className="history-section-header">
@@ -179,9 +176,12 @@ export function RincianKelasDosen({ onLogout, activeTab, onTabChange, user, onNa
         </div>
 
         <div className="history-list">
-          {ATTENDANCE_HISTORY.map((item, index) => (
-            <div key={index} className="history-item">
-              <span className="history-date" onClick={() => onTabChange('rincian')}>{item.date}</span>
+          {scheduleRows.length === 0 ? <p>Tidak ada jadwal untuk kelas ini.</p> : null}
+          {scheduleRows.map((item) => (
+            <div key={item.schedule_id} className="history-item">
+              <span className="history-date" onClick={() => onTabChange('rincian')}>
+                {toScheduleLabel(item)}
+              </span>
               <button className="download-button" title="Download Recap">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v4"/>
@@ -195,4 +195,9 @@ export function RincianKelasDosen({ onLogout, activeTab, onTabChange, user, onNa
       </main>
     </div>
   );
+}
+
+function toScheduleLabel(schedule: LecturerManagedClass["schedules"][number]) {
+  const startDate = schedule.start_date ? `${schedule.start_date} - ${schedule.end_date}` : "Periode aktif";
+  return `${schedule.day_of_week} ${schedule.start_time} - ${schedule.end_time} (${startDate})`;
 }

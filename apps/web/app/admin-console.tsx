@@ -8,7 +8,7 @@ import { ConsoleSidebar } from "./features/console/components/console-sidebar";
 import { HomeScreenDosen } from "./features/console/components/HomeScreenDosen";
 import { LoginScreen, Session } from "./features/console/components/LoginScreen";
 import { HomeScreenMahasiswa } from "./features/console/components/HomeScreenMahasiswa";
-import { ClassesMahasiswa } from "./features/console/components/ClassesMahasiswa";
+import { ClassesMahasiswa, type StudentClassSummary } from "./features/console/components/ClassesMahasiswa";
 import { ClassesDosen } from "./features/console/components/ClassesDosen";
 import { ProfileMahasiswa } from "./features/console/components/ProfileMahasiswa";
 import { ProfileDosen } from "./features/console/components/ProfileDosen";
@@ -44,6 +44,7 @@ export default function AdminConsole() {
   const [lecturerManagedClasses, setLecturerManagedClasses] = useState<LecturerManagedClass[]>([]);
   const [lecturerTodayClasses, setLecturerTodayClasses] = useState<LecturerTodayClass[]>([]);
   const [selectedLecturerClassId, setSelectedLecturerClassId] = useState<string | null>(null);
+  const [selectedStudentClass, setSelectedStudentClass] = useState<StudentClassSummary | null>(null);
   const [lecturerRoster, setLecturerRoster] = useState<LecturerClassRoster | null>(null);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -166,6 +167,46 @@ export default function AdminConsole() {
       }
     },
     [refreshResources],
+  );
+
+  const refreshLecturerData = useCallback(
+    async (accessToken = getCurrentAccessToken()) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [todayClasses, managedClasses] = await Promise.all([
+          apiRequest<LecturerTodayClass[]>("me/classes/today", {
+            accessToken,
+            onAccessTokenRotated: setToken,
+          }),
+          apiRequest<LecturerManagedClass[]>("me/classes", {
+            accessToken,
+            onAccessTokenRotated: setToken,
+          }),
+        ]);
+        const selectedClassId = selectedLecturerClassId ?? todayClasses[0]?.class_id ?? managedClasses[0]?.class_id ?? null;
+
+        setLecturerTodayClasses(todayClasses);
+        setLecturerManagedClasses(managedClasses);
+        setSelectedLecturerClassId(selectedClassId);
+
+        if (selectedClassId) {
+          const roster = await apiRequest<LecturerClassRoster>(`classes/${selectedClassId}/roster`, {
+            accessToken,
+            onAccessTokenRotated: setToken,
+          });
+          setLecturerRoster(roster);
+        } else {
+          setLecturerRoster(null);
+        }
+      } catch (requestError) {
+        setError(getErrorMessage(requestError, "Unable to refresh lecturer data."));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [selectedLecturerClassId, token],
   );
 
   async function refreshActiveResource() {
@@ -298,6 +339,42 @@ export default function AdminConsole() {
     }
   }, [token, user?.role, refreshAdminResources]);
 
+  useEffect(() => {
+    if (user?.role === "lecturer" && token) {
+      void refreshLecturerData(token);
+    }
+  }, [token, user?.role, refreshLecturerData]);
+
+  async function handleLecturerOverride(action: "unlock" | "lock", roomId?: string) {
+    const targetRoomId = roomId ?? lecturerTodayClasses[0]?.room.id ?? lecturerManagedClasses[0]?.room.id;
+    if (!targetRoomId) {
+      setError("No classroom is available for override.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await apiRequest<{ status: "sent" | "failed"; iot_gateway?: { message?: string } }>("overrides", {
+        method: "POST",
+        accessToken: getCurrentAccessToken(),
+        body: {
+          room_id: targetRoomId,
+          action,
+          reason: `Lecturer ${action} request from web console`,
+        },
+        onAccessTokenRotated: setToken,
+      });
+      setMessage(response.status === "sent" ? "Door command sent to IoT gateway." : response.iot_gateway?.message ?? "Door command failed.");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Unable to send door override."));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   const navigateToNotifications = () => {
     setPreviousTab(activeTab);
     setActiveTab("notifikasi");
@@ -321,6 +398,7 @@ export default function AdminConsole() {
       return (
         <RincianKelasMahasiswa 
           user={{ name: user.account_name || "Aliya", email: user.email || "" }}
+          course={selectedStudentClass}
           activeTab="kelas"
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
@@ -330,11 +408,13 @@ export default function AdminConsole() {
     }
     if (activeTab === "kelas") {
       return (
-        <ClassesMahasiswa 
+      <ClassesMahasiswa 
+          accessToken={getCurrentAccessToken()}
           activeTab="kelas" 
           onTabChange={(tab: any) => setActiveTab(tab)} 
           onLogout={handleLogout} 
           onNavigateToNotifications={navigateToNotifications}
+          onSelectClass={setSelectedStudentClass}
         />
       );
     }
@@ -350,6 +430,7 @@ export default function AdminConsole() {
     }
     return (
       <HomeScreenMahasiswa 
+        accessToken={getCurrentAccessToken()}
         activeTab="dashboard" 
         onTabChange={(tab: any) => setActiveTab(tab)} 
         onLogout={handleLogout} 
@@ -375,6 +456,7 @@ export default function AdminConsole() {
       return (
         <RincianKelasDosen 
           user={{ name: user.account_name || "Aymar", email: user.email || "" }}
+          classItem={lecturerManagedClasses.find((item) => item.class_id === selectedLecturerClassId) ?? lecturerTodayClasses[0] ?? null}
           activeTab="kelas" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
@@ -385,11 +467,13 @@ export default function AdminConsole() {
     if (activeTab === "kelas") {
       return (
         <ClassesDosen 
+          classes={lecturerManagedClasses}
           user={{ name: user.account_name || "Aymar", email: user.email || "" }}
           activeTab="kelas" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}
           onNavigateToNotifications={navigateToNotifications}
+          onSelectClass={setSelectedLecturerClassId}
         />
       );
     }
@@ -414,6 +498,7 @@ export default function AdminConsole() {
         lecturerManagedClasses={lecturerManagedClasses}
         lecturerRoster={lecturerRoster}
         onNavigateToNotifications={navigateToNotifications}
+        onOverride={(action, roomId) => void handleLecturerOverride(action, roomId)}
       />
     );
   }

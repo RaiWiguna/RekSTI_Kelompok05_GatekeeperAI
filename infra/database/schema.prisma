@@ -267,6 +267,8 @@ model Schedule {
   id                String             @id @default(uuid()) @db.Uuid
   classId           String             @map("class_id") @db.Uuid
   dayOfWeek         DayOfWeek          @map("day_of_week")
+  startDate         DateTime           @map("start_date") @db.Date
+  endDate           DateTime           @map("end_date") @db.Date
   startTime         DateTime           @map("start_time") @db.Time(0)
   endTime           DateTime           @map("end_time") @db.Time(0)
   source            ScheduleSource     @default(MANUAL)
@@ -277,8 +279,9 @@ model Schedule {
   createdAt         DateTime           @default(now()) @map("created_at")
   updatedAt         DateTime           @updatedAt @map("updated_at")
 
-  @@unique([classId, dayOfWeek, startTime, endTime], map: "schedules_class_id_day_of_week_start_time_end_time_key")
+  @@unique([classId, dayOfWeek, startDate, endDate, startTime, endTime], map: "schedules_class_period_day_time_key")
   @@index([dayOfWeek], map: "schedules_day_of_week_idx")
+  @@index([startDate, endDate], map: "schedules_start_date_end_date_idx")
   @@index([source], map: "schedules_source_idx")
   @@map("schedules")
 }
@@ -304,6 +307,7 @@ model AttendanceRecord {
   studentId  String           @map("student_id") @db.Uuid
   classId    String           @map("class_id") @db.Uuid
   scheduleId String?          @map("schedule_id") @db.Uuid
+  occurrenceDate DateTime     @map("occurrence_date") @db.Date
   roomId     String?          @map("room_id") @db.Uuid
   status     AttendanceStatus
   source     AttendanceSource
@@ -316,8 +320,9 @@ model AttendanceRecord {
   createdAt  DateTime         @default(now()) @map("created_at")
   updatedAt  DateTime         @updatedAt @map("updated_at")
 
-  @@unique([studentId, scheduleId], map: "attendance_records_student_id_schedule_id_key")
+  @@unique([studentId, scheduleId, occurrenceDate], map: "attendance_records_student_schedule_date_key")
   @@index([classId], map: "attendance_records_class_id_idx")
+  @@index([occurrenceDate], map: "attendance_records_occurrence_date_idx")
   @@index([roomId], map: "attendance_records_room_id_idx")
   @@index([status], map: "attendance_records_status_idx")
   @@index([source], map: "attendance_records_source_idx")

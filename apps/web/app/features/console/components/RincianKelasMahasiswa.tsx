@@ -2,25 +2,25 @@
 
 import React from "react";
 import gatekeeperLogo from "../../../assets/gatekeeper_logo_only.png";
-
-const ATTENDANCE_HISTORY = [
-  { date: "Senin, 9 Februari 2026", status: "Attended", color: "#4ADE80" },
-  { date: "Rabu, 11 Februari 2026", status: "Absent", color: "#F87171" },
-  { date: "Senin, 16 Februari 2026", status: "Attended", color: "#4ADE80" },
-  { date: "Rabu, 18 Februari 2026", status: "Attended", color: "#4ADE80" },
-  { date: "Senin, 23 Februari 2026", status: "Absent", color: "#F87171" },
-  { date: "Rabu, 25 Februari 2026", status: "Attended", color: "#4ADE80" },
-];
+import type { StudentClassSummary } from "./ClassesMahasiswa";
 
 type RincianKelasMahasiswaProps = {
   onLogout: () => void;
   activeTab: string;
   onTabChange: (tab: "dashboard" | "kelas" | "profil" | "rincian-kelas") => void;
   user: { name: string; email: string };
+  course: StudentClassSummary | null;
   onNavigateToNotifications: () => void;
 };
 
-export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user, onNavigateToNotifications }: RincianKelasMahasiswaProps) {
+export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user, course, onNavigateToNotifications }: RincianKelasMahasiswaProps) {
+  const attendanceHistory = course?.attendance_history.map((item) => ({
+    ...item,
+    displayDate: formatDisplayDate(item.date),
+    label: item.status === "attended" ? "Attended" : "Absent",
+    color: item.status === "attended" ? "#4ADE80" : "#F87171",
+  })) ?? [];
+
   return (
     <div className="dashboard-wrapper">
       <style jsx>{`
@@ -332,8 +332,10 @@ export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user, 
             <path d="M10 11V9a2 2 0 1 1 4 0v2"/>
           </svg>
 
-          <div className="class-title">II3230 Keamanan Informasi</div>
-          <div className="class-lecturer">Ir. Budi Rahardjo, M.Sc., Ph.D.</div>
+          <div className="class-title">
+            {course ? `${course.course.code} ${course.course.name}` : "Pilih kelas dari daftar kelas"}
+          </div>
+          <div className="class-lecturer">{course?.lecturer.full_name ?? "-"}</div>
         </div>
 
         <div className="history-section-header">
@@ -345,9 +347,10 @@ export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user, 
         </div>
 
         <div className="history-list">
-          {ATTENDANCE_HISTORY.map((item, index) => (
-            <div key={index} className="history-item">
-              <span className="history-date">{item.date}</span>
+          {attendanceHistory.length === 0 ? <p>Tidak ada riwayat presensi untuk kelas ini.</p> : null}
+          {attendanceHistory.map((item) => (
+            <div key={`${item.schedule_id}-${item.date}`} className="history-item">
+              <span className="history-date">{item.displayDate}</span>
               <div className="history-status">
                 <div className="status-dot" style={{ backgroundColor: item.color }}></div>
                 {item.status}
@@ -358,4 +361,14 @@ export function RincianKelasMahasiswa({ onLogout, activeTab, onTabChange, user, 
       </main>
     </div>
   );
+}
+
+function formatDisplayDate(value: string) {
+  return new Date(`${value}T00:00:00.000Z`).toLocaleDateString("id-ID", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 }

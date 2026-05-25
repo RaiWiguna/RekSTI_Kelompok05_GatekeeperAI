@@ -578,7 +578,7 @@ export class MeService {
     attendanceRecordId: string;
   }) {
     const normalizedBaseUrl = appEnv.IOT_GATEWAY_BASE_URL.replace(/\/$/, "");
-    const url = `${normalizedBaseUrl}/gateway/unlock`;
+    const url = `${normalizedBaseUrl}/v1/gateway/unlock`;
     const dispatchResult = await dispatchIotCommand(url);
 
     const reason = [

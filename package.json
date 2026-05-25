@@ -7,6 +7,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:face": "node scripts/start-face-recognition.mjs",
+    "dev:iot:serial": "pnpm --filter @gatekeeper/iot-gateway dev:select-port",
     "dev:web:stack": "node scripts/dev-stack.mjs web",
     "dev:mobile:stack": "node scripts/dev-stack.mjs mobile",
     "dev:mobile:stack:android": "node scripts/dev-stack.mjs mobile android",

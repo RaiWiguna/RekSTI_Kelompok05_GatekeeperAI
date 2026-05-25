@@ -42,6 +42,8 @@ export function AdminDashboard({
   const [editingValues, setEditingValues] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const isEditing = Boolean(editingItem);
+  const canCreate = config.canCreate ?? true;
+  const canDelete = config.canDelete ?? true;
   const effectiveValues = isEditing ? editingValues : formValues;
   const selectedRole = effectiveValues.role;
   const selectedStudentId = effectiveValues.student_id;
@@ -93,6 +95,11 @@ export function AdminDashboard({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     if (!isEditing) {
+      if (!canCreate) {
+        event.preventDefault();
+        return;
+      }
+
       onCreate(event);
       return;
     }
@@ -120,6 +127,11 @@ export function AdminDashboard({
         </div>
         <div className="panel-body">
           {config.formHelp ? <p className="form-note">{config.formHelp}</p> : null}
+          {!canCreate && !isEditing ? (
+            <div className="message">
+              Select a record from the table to update it.
+            </div>
+          ) : null}
           {config.key === "users" && !isEditing && linkedAccountForSelectedProfile ? (
             <div className="message">
               This profile already has an account. Select the account row to update it.
@@ -181,13 +193,15 @@ export function AdminDashboard({
             {error ? <div className="message error">{error}</div> : null}
             {message ? <div className="message">{message}</div> : null}
 
-            <button className="button primary" disabled={submitting}>
-              {submitting
-                ? "Saving..."
-                : isEditing
-                  ? `Update ${config.singularLabel}`
-                  : `Create ${config.singularLabel}`}
-            </button>
+            {isEditing || canCreate ? (
+              <button className="button primary" disabled={submitting}>
+                {submitting
+                  ? "Saving..."
+                  : isEditing
+                    ? `Update ${config.singularLabel}`
+                    : `Create ${config.singularLabel}`}
+              </button>
+            ) : null}
           </form>
         </div>
       </section>
@@ -244,14 +258,16 @@ export function AdminDashboard({
                             >
                               Edit
                             </button>
-                            <button
-                              className="button danger"
-                              type="button"
-                              onClick={() => onDelete(id)}
-                              disabled={loading}
-                            >
-                              {config.deleteActionLabel ?? "Delete"}
-                            </button>
+                            {canDelete ? (
+                              <button
+                                className="button danger"
+                                type="button"
+                                onClick={() => onDelete(id)}
+                                disabled={loading}
+                              >
+                                {config.deleteActionLabel ?? "Delete"}
+                              </button>
+                            ) : null}
                           </div>
                         </td>
                       </tr>

@@ -500,6 +500,7 @@ export default function AdminConsole() {
         lecturerRoster={lecturerRoster}
         onNavigateToNotifications={navigateToNotifications}
         onOverride={(action, roomId) => void handleLecturerOverride(action, roomId)}
+        isOverrideSubmitting={submitting}
       />
     );
   }

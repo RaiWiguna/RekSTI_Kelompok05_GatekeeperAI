@@ -1,8 +1,12 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
-import type { AttendanceRecordsListQueryInput } from "@gatekeeper/shared-validation";
+import type {
+  AttendanceRecordsListQueryInput,
+  UpdateAttendanceRecordInput,
+} from "@gatekeeper/shared-validation";
 
 import type { AuthUser } from "../common/auth/auth-user.interface";
-import { formatDateOnly } from "../common/date/calendar";
+import { formatDateOnly, parseDateOnly } from "../common/date/calendar";
+import { mapPrismaError } from "../common/database/prisma-error";
 import { assertFound } from "../common/database/query-helpers";
 import {
   fromAttendanceSource,
@@ -65,6 +69,37 @@ export class AttendanceRecordsService {
     });
 
     return mapAttendanceRecord(assertFound(record, "Attendance record"));
+  }
+
+  async update(id: string, payload: UpdateAttendanceRecordInput) {
+    try {
+      const record = await this.prisma.attendanceRecord.update({
+        where: { id },
+        data: {
+          ...(payload.occurrence_date !== undefined
+            ? { occurrenceDate: parseDateOnly(payload.occurrence_date) }
+            : {}),
+          ...(payload.room_id !== undefined ? { roomId: payload.room_id } : {}),
+          ...(payload.status !== undefined
+            ? { status: toAttendanceStatus(payload.status) }
+            : {}),
+          ...(payload.source !== undefined
+            ? { source: toAttendanceSource(payload.source) }
+            : {}),
+          ...(payload.check_in_at !== undefined
+            ? { checkInAt: new Date(payload.check_in_at) }
+            : {}),
+          ...(payload.check_out_at !== undefined
+            ? { checkOutAt: new Date(payload.check_out_at) }
+            : {}),
+        },
+        include: attendanceRecordInclude,
+      });
+
+      return mapAttendanceRecord(record);
+    } catch (error) {
+      mapPrismaError(error, "Attendance record");
+    }
   }
 
   async recalculate(id: string) {

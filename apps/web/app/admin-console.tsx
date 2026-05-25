@@ -241,6 +241,46 @@ export default function AdminConsole() {
     }
   }
 
+  async function handleUpdate(id: string, values: Record<string, string>) {
+    if (!id) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError(null);
+    setMessage(null);
+
+    const config = resourceConfigs[activeResource];
+    const { password, ...accountValues } = values;
+    const payload = activeResource === "users" ? accountValues : values;
+
+    try {
+      const accessToken = getCurrentAccessToken();
+      await apiRequest(`${config.endpoint}/${id}`, {
+        method: "PATCH",
+        accessToken,
+        body: payload,
+        onAccessTokenRotated: setToken,
+      });
+
+      if (activeResource === "users" && password?.trim()) {
+        await apiRequest(`${config.endpoint}/${id}/password`, {
+          method: "PATCH",
+          accessToken,
+          body: { password },
+          onAccessTokenRotated: setToken,
+        });
+      }
+
+      await refreshResources([activeResource, ...(config.refreshTargets ?? [])], accessToken);
+      setMessage(`${config.singularLabel} updated.`);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, `Unable to update ${config.singularLabel}.`));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function handleSelectResource(resource: ResourceKey) {
     setActiveResource(resource);
     setQuery("");
@@ -408,6 +448,7 @@ export default function AdminConsole() {
               onFormChange={handleFormChange}
               onQueryChange={setQuery}
               onRefresh={() => void refreshActiveResource()}
+              onUpdate={(id, values) => void handleUpdate(id, values)}
             />
           ) : null}
         </section>

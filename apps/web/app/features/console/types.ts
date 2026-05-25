@@ -116,4 +116,7 @@ export type ResourceConfig = {
   columns: ResourceColumn[];
   emptyMessage: string;
   deleteActionLabel?: string;
+  createTitle?: string;
+  updateTitle?: string;
+  formHelp?: string;
 };

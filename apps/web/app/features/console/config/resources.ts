@@ -250,7 +250,7 @@ export const resourceConfigs: Record<ResourceKey, ResourceConfig> = {
     columns: [
       { key: "class_code", label: "Code", render: (item) => text(item.class_code) },
       { key: "course", label: "Course", render: (item) => nestedText(item.course, "name") },
-      { key: "lecturer", label: "Lecturer", render: (item) => nestedText(item.lecturer, "name") },
+      { key: "lecturer", label: "Lecturer", render: (item) => nestedText(item.lecturer, "full_name") },
       { key: "room", label: "Room", render: (item) => nestedText(item.room, "name") },
     ],
   },

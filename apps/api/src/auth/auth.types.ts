@@ -4,6 +4,6 @@ export interface AuthTokenPayload {
   sub: string;
   email: string;
   account_name: string;
-  role: Extract<UserRole, "student" | "admin" | "lecturer">;
+  role: UserRole;
   type: "access" | "refresh";
 }

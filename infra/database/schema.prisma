@@ -61,17 +61,90 @@ enum ScheduleSource {
   SIX
 }
 
+enum AttendanceStatus {
+  PRESENT
+  LEFT
+  ALPHA
+}
+
+enum AttendanceSource {
+  DEVICE
+  STUDENT_APP
+  MANUAL
+}
+
+enum AccessEventType {
+  ENTRY
+  EXIT
+  OVERRIDE
+  DEVICE_HEARTBEAT
+  SYNC_CHECKPOINT
+}
+
+enum AccessResult {
+  GRANTED
+  DENIED
+}
+
+enum LivenessResult {
+  PASS
+  FAIL
+}
+
+enum OverrideAction {
+  UNLOCK
+  LOCK
+}
+
+enum OverrideStatus {
+  SENT
+  FAILED
+}
+
+enum FaceEmbeddingStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum FaceRegistrationAction {
+  REGISTER
+  UPDATE
+  REVOKE
+}
+
+enum FaceRegistrationResult {
+  SUCCESS
+  FAILED
+}
+
+enum SyncType {
+  SIX_SCHEDULE
+  GATEWAY_EVENT
+  GATEWAY_REFERENCE
+}
+
+enum SyncResult {
+  QUEUED
+  RUNNING
+  SUCCESS
+  PARTIAL_SUCCESS
+  FAILED
+}
+
 model User {
-  id              String        @id @default(uuid()) @db.Uuid
+  id              String         @id @default(uuid()) @db.Uuid
   role            UserRole
-  accountName     String        @map("account_name") @db.VarChar(120)
-  email           String        @unique @db.VarChar(191)
-  passwordHash    String        @map("password_hash") @db.VarChar(255)
-  status          UserStatus    @default(ACTIVE)
-  studentProfile  Student?      @relation("StudentUser")
-  lecturerProfile Lecturer?     @relation("LecturerUser")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  accountName     String         @map("account_name") @db.VarChar(120)
+  email           String         @unique @db.VarChar(191)
+  passwordHash    String         @map("password_hash") @db.VarChar(255)
+  status          UserStatus     @default(ACTIVE)
+  studentProfile  Student?       @relation("StudentUser")
+  lecturerProfile Lecturer?      @relation("LecturerUser")
+  overrideLogs    OverrideLog[]
+  notifications   Notification[]
+  syncLogs        SyncLog[]
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
 
   @@index([role], map: "users_role_idx")
   @@index([status], map: "users_status_idx")
@@ -79,15 +152,19 @@ model User {
 }
 
 model Student {
-  id          String           @id @default(uuid()) @db.Uuid
-  userId      String?          @unique @map("user_id") @db.Uuid
-  nim         String           @unique @db.VarChar(32)
-  fullName    String           @map("full_name") @db.VarChar(120)
-  status      StudentStatus    @default(ACTIVE)
-  user        User?            @relation("StudentUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  enrollments Enrollment[]
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  id                   String                @id @default(uuid()) @db.Uuid
+  userId               String?               @unique @map("user_id") @db.Uuid
+  nim                  String                @unique @db.VarChar(32)
+  fullName             String                @map("full_name") @db.VarChar(120)
+  status               StudentStatus         @default(ACTIVE)
+  user                 User?                 @relation("StudentUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  enrollments          Enrollment[]
+  attendanceRecords    AttendanceRecord[]
+  accessLogs           AccessLog[]
+  faceEmbeddings       FaceEmbedding[]
+  faceRegistrationLogs FaceRegistrationLog[]
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
 
   @@index([fullName], map: "students_full_name_idx")
   @@index([status], map: "students_status_idx")
@@ -95,15 +172,15 @@ model Student {
 }
 
 model Lecturer {
-  id            String           @id @default(uuid()) @db.Uuid
-  userId        String?          @unique @map("user_id") @db.Uuid
-  nidn          String           @unique @db.VarChar(32)
-  fullName      String           @map("full_name") @db.VarChar(120)
-  status        LecturerStatus   @default(ACTIVE)
-  user          User?            @relation("LecturerUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  classes       Class[]
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String?        @unique @map("user_id") @db.Uuid
+  nidn      String         @unique @db.VarChar(32)
+  fullName  String         @map("full_name") @db.VarChar(120)
+  status    LecturerStatus @default(ACTIVE)
+  user      User?          @relation("LecturerUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  classes   Class[]
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
 
   @@index([fullName], map: "lecturers_full_name_idx")
   @@index([status], map: "lecturers_status_idx")
@@ -111,14 +188,14 @@ model Lecturer {
 }
 
 model Course {
-  id           String        @id @default(uuid()) @db.Uuid
-  code         String        @unique @db.VarChar(32)
-  name         String        @db.VarChar(160)
-  credits      Int
-  status       CourseStatus  @default(ACTIVE)
-  classes      Class[]
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id        String       @id @default(uuid()) @db.Uuid
+  code      String       @unique @db.VarChar(32)
+  name      String       @db.VarChar(160)
+  credits   Int
+  status    CourseStatus @default(ACTIVE)
+  classes   Class[]
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
 
   @@index([name], map: "courses_name_idx")
   @@index([status], map: "courses_status_idx")
@@ -126,15 +203,18 @@ model Course {
 }
 
 model Room {
-  id          String    @id @default(uuid()) @db.Uuid
-  code        String    @unique @db.VarChar(32)
-  name        String    @db.VarChar(120)
-  building    String    @db.VarChar(64)
-  floor       Int
-  classes     Class[]
-  devices     Device[]
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id                String             @id @default(uuid()) @db.Uuid
+  code              String             @unique @db.VarChar(32)
+  name              String             @db.VarChar(120)
+  building          String             @db.VarChar(64)
+  floor             Int
+  classes           Class[]
+  devices           Device[]
+  attendanceRecords AttendanceRecord[]
+  accessLogs        AccessLog[]
+  overrideLogs      OverrideLog[]
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   @@index([building], map: "rooms_building_idx")
   @@index([name], map: "rooms_name_idx")
@@ -142,15 +222,17 @@ model Room {
 }
 
 model Device {
-  id          String       @id @default(uuid()) @db.Uuid
-  roomId      String       @map("room_id") @db.Uuid
-  deviceCode  String       @unique @map("device_code") @db.VarChar(64)
-  deviceType  String       @map("device_type") @db.VarChar(64)
-  status      DeviceStatus @default(OFFLINE)
-  room        Room         @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  lastSeenAt  DateTime?    @map("last_seen_at")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  id            String                @id @default(uuid()) @db.Uuid
+  roomId        String                @map("room_id") @db.Uuid
+  deviceCode    String                @unique @map("device_code") @db.VarChar(64)
+  deviceType    String                @map("device_type") @db.VarChar(64)
+  status        DeviceStatus          @default(OFFLINE)
+  room          Room                  @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lastSeenAt    DateTime?             @map("last_seen_at")
+  accessLogs    AccessLog[]
+  referenceAcks GatewayReferenceAck[]
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
 
   @@index([roomId], map: "devices_room_id_idx")
   @@index([status], map: "devices_status_idx")
@@ -158,20 +240,21 @@ model Device {
 }
 
 model Class {
-  id            String       @id @default(uuid()) @db.Uuid
-  courseId      String       @map("course_id") @db.Uuid
-  lecturerId    String       @map("lecturer_id") @db.Uuid
-  roomId        String       @map("room_id") @db.Uuid
-  classCode     String       @map("class_code") @db.VarChar(32)
-  semester      String       @db.VarChar(16)
-  academicYear  String       @map("academic_year") @db.VarChar(16)
-  course        Course       @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  lecturer      Lecturer     @relation(fields: [lecturerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  room          Room         @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  schedules     Schedule[]
-  enrollments   Enrollment[]
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
+  id                String             @id @default(uuid()) @db.Uuid
+  courseId          String             @map("course_id") @db.Uuid
+  lecturerId        String             @map("lecturer_id") @db.Uuid
+  roomId            String             @map("room_id") @db.Uuid
+  classCode         String             @map("class_code") @db.VarChar(32)
+  semester          String             @db.VarChar(16)
+  academicYear      String             @map("academic_year") @db.VarChar(16)
+  course            Course             @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  lecturer          Lecturer           @relation(fields: [lecturerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room              Room               @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  schedules         Schedule[]
+  enrollments       Enrollment[]
+  attendanceRecords AttendanceRecord[]
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   @@unique([classCode, semester, academicYear], map: "classes_class_code_semester_academic_year_key")
   @@index([courseId], map: "classes_course_id_idx")
@@ -181,16 +264,18 @@ model Class {
 }
 
 model Schedule {
-  id         String         @id @default(uuid()) @db.Uuid
-  classId    String         @map("class_id") @db.Uuid
-  dayOfWeek  DayOfWeek      @map("day_of_week")
-  startTime  DateTime       @map("start_time") @db.Time(0)
-  endTime    DateTime       @map("end_time") @db.Time(0)
-  source     ScheduleSource @default(MANUAL)
-  class      Class          @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  syncedAt   DateTime?      @map("synced_at")
-  createdAt  DateTime       @default(now()) @map("created_at")
-  updatedAt  DateTime       @updatedAt @map("updated_at")
+  id                String             @id @default(uuid()) @db.Uuid
+  classId           String             @map("class_id") @db.Uuid
+  dayOfWeek         DayOfWeek          @map("day_of_week")
+  startTime         DateTime           @map("start_time") @db.Time(0)
+  endTime           DateTime           @map("end_time") @db.Time(0)
+  source            ScheduleSource     @default(MANUAL)
+  class             Class              @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  syncedAt          DateTime?          @map("synced_at")
+  attendanceRecords AttendanceRecord[]
+  accessLogs        AccessLog[]
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   @@unique([classId, dayOfWeek, startTime, endTime], map: "schedules_class_id_day_of_week_start_time_end_time_key")
   @@index([dayOfWeek], map: "schedules_day_of_week_idx")
@@ -199,17 +284,187 @@ model Schedule {
 }
 
 model Enrollment {
-  id         String           @id @default(uuid()) @db.Uuid
-  studentId  String           @map("student_id") @db.Uuid
-  classId    String           @map("class_id") @db.Uuid
-  status     EnrollmentStatus @default(ACTIVE)
-  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  class      Class            @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
+  id        String           @id @default(uuid()) @db.Uuid
+  studentId String           @map("student_id") @db.Uuid
+  classId   String           @map("class_id") @db.Uuid
+  status    EnrollmentStatus @default(ACTIVE)
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
 
   @@unique([studentId, classId], map: "enrollments_student_id_class_id_key")
   @@index([classId], map: "enrollments_class_id_idx")
   @@index([status], map: "enrollments_status_idx")
   @@map("enrollments")
+}
+
+model AttendanceRecord {
+  id         String           @id @default(uuid()) @db.Uuid
+  studentId  String           @map("student_id") @db.Uuid
+  classId    String           @map("class_id") @db.Uuid
+  scheduleId String?          @map("schedule_id") @db.Uuid
+  roomId     String?          @map("room_id") @db.Uuid
+  status     AttendanceStatus
+  source     AttendanceSource
+  checkInAt  DateTime?        @map("check_in_at")
+  checkOutAt DateTime?        @map("check_out_at")
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  class      Class            @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  schedule   Schedule?        @relation(fields: [scheduleId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  room       Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  @@unique([studentId, scheduleId], map: "attendance_records_student_id_schedule_id_key")
+  @@index([classId], map: "attendance_records_class_id_idx")
+  @@index([roomId], map: "attendance_records_room_id_idx")
+  @@index([status], map: "attendance_records_status_idx")
+  @@index([source], map: "attendance_records_source_idx")
+  @@index([checkInAt], map: "attendance_records_check_in_at_idx")
+  @@map("attendance_records")
+}
+
+model AccessLog {
+  id              String          @id @default(uuid()) @db.Uuid
+  eventId         String          @unique @map("event_id") @db.VarChar(96)
+  deviceId        String?         @map("device_id") @db.Uuid
+  deviceCode      String?         @map("device_code") @db.VarChar(64)
+  studentId       String?         @map("student_id") @db.Uuid
+  studentNim      String?         @map("student_nim") @db.VarChar(32)
+  roomId          String?         @map("room_id") @db.Uuid
+  roomCode        String?         @map("room_code") @db.VarChar(32)
+  scheduleId      String?         @map("schedule_id") @db.Uuid
+  scheduleRef     String?         @map("schedule_ref") @db.VarChar(120)
+  eventType       AccessEventType @map("event_type")
+  accessResult    AccessResult    @map("access_result")
+  livenessResult  LivenessResult? @map("liveness_result")
+  confidenceScore Float?          @map("confidence_score")
+  gatewayId       String?         @map("gateway_id") @db.VarChar(64)
+  syncVersion     Int?            @map("sync_version")
+  isSynced        Boolean         @default(false) @map("is_synced")
+  eventAt         DateTime        @map("event_at")
+  receivedAt      DateTime        @default(now()) @map("received_at")
+  device          Device?         @relation(fields: [deviceId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  student         Student?        @relation(fields: [studentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  room            Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  schedule        Schedule?       @relation(fields: [scheduleId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([deviceId], map: "access_logs_device_id_idx")
+  @@index([studentId], map: "access_logs_student_id_idx")
+  @@index([roomId], map: "access_logs_room_id_idx")
+  @@index([scheduleId], map: "access_logs_schedule_id_idx")
+  @@index([eventType], map: "access_logs_event_type_idx")
+  @@index([accessResult], map: "access_logs_access_result_idx")
+  @@index([eventAt], map: "access_logs_event_at_idx")
+  @@index([gatewayId], map: "access_logs_gateway_id_idx")
+  @@map("access_logs")
+}
+
+model OverrideLog {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  roomId    String         @map("room_id") @db.Uuid
+  action    OverrideAction
+  reason    String         @db.VarChar(500)
+  status    OverrideStatus @default(SENT)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room      Room           @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@index([userId], map: "override_logs_user_id_idx")
+  @@index([roomId], map: "override_logs_room_id_idx")
+  @@index([action], map: "override_logs_action_idx")
+  @@index([createdAt], map: "override_logs_created_at_idx")
+  @@map("override_logs")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  title     String    @db.VarChar(160)
+  message   String    @db.VarChar(1000)
+  type      String    @default("info") @db.VarChar(64)
+  readAt    DateTime? @map("read_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId], map: "notifications_user_id_idx")
+  @@index([type], map: "notifications_type_idx")
+  @@index([readAt], map: "notifications_read_at_idx")
+  @@index([createdAt], map: "notifications_created_at_idx")
+  @@map("notifications")
+}
+
+model FaceEmbedding {
+  id           String              @id @default(uuid()) @db.Uuid
+  studentId    String              @map("student_id") @db.Uuid
+  embeddingRef String              @unique @map("embedding_ref") @db.VarChar(255)
+  modelVersion String              @map("model_version") @db.VarChar(64)
+  status       FaceEmbeddingStatus @default(ACTIVE)
+  student      Student             @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@index([studentId], map: "face_embeddings_student_id_idx")
+  @@index([status], map: "face_embeddings_status_idx")
+  @@map("face_embeddings")
+}
+
+model FaceRegistrationLog {
+  id           String                 @id @default(uuid()) @db.Uuid
+  studentId    String                 @map("student_id") @db.Uuid
+  action       FaceRegistrationAction
+  result       FaceRegistrationResult
+  embeddingRef String?                @map("embedding_ref") @db.VarChar(255)
+  modelVersion String?                @map("model_version") @db.VarChar(64)
+  student      Student                @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt    DateTime               @default(now()) @map("created_at")
+
+  @@index([studentId], map: "face_registration_logs_student_id_idx")
+  @@index([action], map: "face_registration_logs_action_idx")
+  @@index([result], map: "face_registration_logs_result_idx")
+  @@index([createdAt], map: "face_registration_logs_created_at_idx")
+  @@map("face_registration_logs")
+}
+
+model SyncLog {
+  id             String     @id @default(uuid()) @db.Uuid
+  syncRunId      String     @unique @map("sync_run_id") @db.VarChar(96)
+  userId         String?    @map("user_id") @db.Uuid
+  syncType       SyncType   @map("sync_type")
+  source         String     @db.VarChar(64)
+  target         String?    @db.VarChar(64)
+  result         SyncResult
+  totalReceived  Int        @default(0) @map("total_received")
+  totalInserted  Int        @default(0) @map("total_inserted")
+  totalUpdated   Int        @default(0) @map("total_updated")
+  totalDuplicate Int        @default(0) @map("total_duplicate")
+  totalRejected  Int        @default(0) @map("total_rejected")
+  errorSummary   String?    @map("error_summary") @db.Text
+  startedAt      DateTime   @default(now()) @map("started_at")
+  finishedAt     DateTime?  @map("finished_at")
+  user           User?      @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([userId], map: "sync_logs_user_id_idx")
+  @@index([syncType], map: "sync_logs_sync_type_idx")
+  @@index([result], map: "sync_logs_result_idx")
+  @@index([startedAt], map: "sync_logs_started_at_idx")
+  @@map("sync_logs")
+}
+
+model GatewayReferenceAck {
+  id             String   @id @default(uuid()) @db.Uuid
+  deviceId       String   @map("device_id") @db.Uuid
+  datasetName    String   @map("dataset_name") @db.VarChar(80)
+  datasetVersion String   @map("dataset_version") @db.VarChar(120)
+  checksum       String?  @db.VarChar(160)
+  appliedAt      DateTime @map("applied_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  device         Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([deviceId, datasetName, datasetVersion], map: "gateway_reference_acks_device_dataset_version_key")
+  @@index([datasetName], map: "gateway_reference_acks_dataset_name_idx")
+  @@index([appliedAt], map: "gateway_reference_acks_applied_at_idx")
+  @@map("gateway_reference_acks")
 }

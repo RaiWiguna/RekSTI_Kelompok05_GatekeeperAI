@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
-import { DayOfWeek, EnrollmentStatus } from "@prisma/client";
-import type { UpdateUserAccountInput } from "@gatekeeper/shared-validation";
+import { AttendanceSource, AttendanceStatus, DayOfWeek, EnrollmentStatus } from "@prisma/client";
+import type { CameraScanInput, UpdateUserAccountInput } from "@gatekeeper/shared-validation";
 import type { TodayViewQueryInput } from "@gatekeeper/shared-validation";
 
 import { getCurrentJakartaDate, combineDateAndTime } from "../common/date/calendar";
@@ -127,6 +127,89 @@ export class MeService {
     const classes = await this.listLecturerClasses(linkedLecturer.id);
 
     return classes.map((classItem) => mapLecturerClassSummary(classItem, linkedLecturer));
+  }
+
+  async submitCameraScan(user: AuthUser, payload: CameraScanInput) {
+    const student = await this.prisma.student.findFirst({
+      where: { userId: user.userId },
+      select: {
+        id: true,
+        nim: true,
+        fullName: true,
+      },
+    });
+    const linkedStudent = assertFound(student, "Student");
+
+    const schedule = await this.prisma.schedule.findUnique({
+      where: { id: payload.schedule_id },
+      include: {
+        class: {
+          include: {
+            room: true,
+            enrollments: {
+              where: {
+                studentId: linkedStudent.id,
+                status: EnrollmentStatus.ACTIVE,
+              },
+              select: { id: true },
+            },
+          },
+        },
+      },
+    });
+    const resolvedSchedule = assertFound(schedule, "Schedule");
+
+    if (resolvedSchedule.class.enrollments.length === 0) {
+      throw new ForbiddenException({
+        code: "invalid_schedule",
+        message: "Student is not enrolled in this schedule",
+      });
+    }
+
+    const now = new Date(payload.captured_at);
+    const existingRecord = await this.prisma.attendanceRecord.findFirst({
+      where: {
+        studentId: linkedStudent.id,
+        scheduleId: resolvedSchedule.id,
+      },
+      select: { id: true },
+    });
+
+    const record = existingRecord
+      ? await this.prisma.attendanceRecord.update({
+          where: { id: existingRecord.id },
+          data:
+            payload.action === "check_out"
+              ? {
+                  status: AttendanceStatus.LEFT,
+                  checkOutAt: now,
+                }
+              : {
+                  status: AttendanceStatus.PRESENT,
+                  source: AttendanceSource.STUDENT_APP,
+                  checkInAt: now,
+                },
+        })
+      : await this.prisma.attendanceRecord.create({
+          data: {
+            studentId: linkedStudent.id,
+            classId: resolvedSchedule.classId,
+            scheduleId: resolvedSchedule.id,
+            roomId: resolvedSchedule.class.roomId,
+            status: payload.action === "check_out" ? AttendanceStatus.LEFT : AttendanceStatus.PRESENT,
+            source: AttendanceSource.STUDENT_APP,
+            checkInAt: payload.action === "check_in" ? now : null,
+            checkOutAt: payload.action === "check_out" ? now : null,
+          },
+    });
+
+    return {
+      attendance_record_id: record.id,
+      status: record.status.toLowerCase() as "present" | "left" | "alpha",
+      source: "student_app" as const,
+      verification_result: "matched" as const,
+      face_probe_ref: payload.face_probe_ref,
+    };
   }
 
   async updateProfile(user: AuthUser, payload: UpdateUserAccountInput) {

@@ -87,3 +87,31 @@ Pastikan DNS `api.example.com` mengarah ke VPS.
 - Nginx conf prod: `infra/nginx/api.vps.conf`
 - Untuk HTTPS, letakkan SSL termination di reverse proxy (Nginx host-level / gateway eksternal) sebelum production go-live.
 
+## 6) CI/CD GitHub Actions ke VPS
+
+Workflow `.github/workflows/deploy-vps.yml` dapat deploy backend dan infra VPS setiap ada push ke `main` pada path backend/infra terkait.
+
+Tambahkan GitHub Actions secrets berikut di repository:
+
+```text
+VPS_HOST=103.31.38.237
+VPS_PORT=22
+VPS_USER=raiDharma
+VPS_PROJECT_DIR=/home/raiDharma/gatekeeper-ai
+VPS_SSH_KEY=<private key SSH yang boleh login ke VPS>
+```
+
+Pastikan VPS juga bisa menjalankan `git pull origin main` dari folder project. Untuk private repository, pasang deploy key atau kredensial GitHub di VPS.
+
+Deploy otomatis menjalankan:
+
+```text
+git pull --ff-only origin main
+docker compose up postgres/redis
+docker compose build api/migrate
+docker compose run migrate
+docker compose up api/nginx
+```
+
+Seed tidak dijalankan otomatis saat push karena dapat menimpa password akun demo. Jika perlu reset akun seed, jalankan workflow secara manual dari tab GitHub Actions dan pilih `run_seed=true`.
+

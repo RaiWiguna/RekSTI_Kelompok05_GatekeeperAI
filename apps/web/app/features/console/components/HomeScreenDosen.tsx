@@ -29,13 +29,7 @@ export function HomeScreenDosen({
 }: HomeScreenDosenProps) {
   const [timer, setTimer] = useState("00:00:00");
 
-  const currentClass = lecturerTodayClasses[0] || {
-    courseCode: "II3230",
-    courseName: "Keamanan Informasi",
-    className: "Kelas 01 - 7601",
-    studentCount: 72,
-    presentCount: 50
-  };
+  const currentClass = toTodayClassSummary(lecturerTodayClasses[0]);
 
   return (
     <div className="dashboard-wrapper">
@@ -404,4 +398,24 @@ export function HomeScreenDosen({
       </main>
     </div>
   );
+}
+
+function toTodayClassSummary(classItem?: LecturerTodayClass) {
+  if (!classItem) {
+    return {
+      courseCode: "II3230",
+      courseName: "Keamanan Informasi",
+      className: "Kelas 01 - 7601",
+      studentCount: 72,
+      presentCount: 50,
+    };
+  }
+
+  return {
+    courseCode: classItem.course.code,
+    courseName: classItem.course.name,
+    className: `${classItem.class_code} - ${classItem.room.code}`,
+    studentCount: classItem.enrollments_count,
+    presentCount: 0,
+  };
 }

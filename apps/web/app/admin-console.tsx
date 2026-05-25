@@ -184,7 +184,7 @@ export default function AdminConsole() {
     if (activeTab === "rincian-kelas-dosen") {
       return (
         <RincianKelasDosen 
-          user={{ name: user.name || "Aymar", email: user.email || "" }}
+          user={{ name: user.account_name || "Aymar", email: user.email || "" }}
           activeTab="kelas" 
           onTabChange={(tab: any) => setActiveTab(tab)}
           onLogout={handleLogout}

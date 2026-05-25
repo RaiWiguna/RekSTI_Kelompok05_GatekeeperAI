@@ -1,5 +1,9 @@
 .git
 .gitignore
+.env
+.env.*
+!*.example
+!**/*.example
 node_modules
 **/node_modules
 .turbo

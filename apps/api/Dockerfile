@@ -7,18 +7,19 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
-RUN corepack enable
+RUN apk add --no-cache openssl \
+  && corepack enable
 
 COPY . .
 
 RUN pnpm install --frozen-lockfile
 
-RUN pnpm --filter @gatekeeper/shared-config build \
+RUN DATABASE_URL="postgresql://gatekeeper:gatekeeper@localhost:5432/gatekeeper" pnpm db:generate \
+  && pnpm --filter @gatekeeper/shared-config build \
   && pnpm --filter @gatekeeper/shared-types build \
   && pnpm --filter @gatekeeper/shared-validation build \
   && pnpm --filter @gatekeeper/shared-utils build \
-  && pnpm --filter @gatekeeper/api build \
-  && pnpm db:generate
+  && pnpm --filter @gatekeeper/api build
 
 EXPOSE 3001
 

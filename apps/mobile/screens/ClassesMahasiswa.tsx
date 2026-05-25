@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
 const CLASS_LIST = [
   { id: 1, code: "II3230", name: "Keamanan Informasi", lecturer: "Ir. Budi Rahardjo, M.Sc., Ph.D.", attendance: "90.76 %" },

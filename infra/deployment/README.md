@@ -4,6 +4,12 @@ Panduan ini untuk skenario:
 - Frontend `apps/web` deploy di Vercel
 - Backend + infra (API, PostgreSQL, Redis, Nginx) deploy di VPS menggunakan Docker Compose
 
+Target VPS saat ini:
+- Host: `103.31.38.237`
+- User SSH: `raiDharma`
+- OS: Ubuntu 24.04 LTS
+- Public API sementara: `http://103.31.38.237/v1`
+
 ## 1) Siapkan Environment File
 
 1. Copy template:
@@ -21,6 +27,13 @@ Copy-Item infra/deployment/.env.vps.example infra/deployment/.env.vps
 ## 2) Build dan Jalankan Stack
 
 ```powershell
+docker compose -f infra/docker/docker-compose.vps.yml --env-file infra/deployment/.env.vps up -d --build
+```
+
+Di VPS, jalankan perintah dari root repo hasil sinkronisasi, misalnya:
+
+```bash
+cd ~/gatekeeper-ai
 docker compose -f infra/docker/docker-compose.vps.yml --env-file infra/deployment/.env.vps up -d --build
 ```
 
@@ -45,6 +58,12 @@ Health check dari server:
 
 ```powershell
 curl http://127.0.0.1/health
+```
+
+Health check publik dari luar server:
+
+```powershell
+curl http://103.31.38.237/health
 ```
 
 Respon yang diharapkan:

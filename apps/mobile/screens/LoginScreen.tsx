@@ -98,22 +98,36 @@ export function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     }
 
     setIsLoading(true);
-    
-    // Simulate network delay
-    await new Promise<void>(resolve => setTimeout(resolve, 500));
-    
-    // Mock login - any email/password works for UI testing
-    const mockSession: Session = {
-      accessToken: "mock_access_token_" + Math.random().toString(36).substr(2, 9),
-      refreshToken: "mock_refresh_token_" + Math.random().toString(36).substr(2, 9),
-      user: {
-        id: "user_" + Math.random().toString(36).substr(2, 9),
-        name: email.split("@")[0] || "User",
-        role: selectedRole,
-      },
-    };
-    
-    onLoginSuccess(mockSession);
+
+    try {
+      const data = await loginWithPassword(email, password);
+
+      if (data.user.role !== selectedRole) {
+        const diagnostics = await diagnoseApiConnectivity();
+        setNotice({
+          title: "Role tidak sesuai",
+          message: `Akun ini terdaftar sebagai ${toRoleLabel(data.user.role)}, bukan ${toRoleLabel(selectedRole)}.`,
+        });
+        console.warn(buildLoginErrorMessage(new ApiRequestError({
+          code: "auth_role_mismatch",
+          message: "Selected role does not match authenticated account role.",
+          url: diagnostics.loginUrl,
+        }), diagnostics));
+        return;
+      }
+
+      onLoginSuccess({
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        user: data.user,
+      });
+    } catch (error) {
+      const diagnostics = await diagnoseApiConnectivity();
+      console.warn(buildLoginErrorMessage(error, diagnostics));
+      setNotice(mapLoginNotice(error, diagnostics));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

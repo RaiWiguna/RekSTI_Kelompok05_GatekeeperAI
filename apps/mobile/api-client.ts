@@ -1,5 +1,5 @@
 const DEFAULT_REQUEST_TIMEOUT_MS = 8_000;
-const DEFAULT_API_BASE_URL = "http://10.0.2.2:3001/v1";
+const DEFAULT_API_BASE_URL = "http://103.31.38.237/v1";
 
 declare const process: {
   env?: Record<string, string | undefined>;

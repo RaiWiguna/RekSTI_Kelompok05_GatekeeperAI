@@ -9,6 +9,7 @@ coverage/
 .env.example
 .env
 .env.local
+infra/deployment/.env.vps
 *.log
 __pycache__/
 *.pyc

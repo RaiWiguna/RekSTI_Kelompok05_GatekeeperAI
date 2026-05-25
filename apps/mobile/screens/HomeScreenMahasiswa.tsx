@@ -48,10 +48,12 @@ const TODAY_COURSES = [
 
 // --- KOMPONEN HOME SCREEN CONTENT ---
 function HomeScreenContent({ 
+  userName,
   onNavigateToClasses, 
   onNavigateToProfile,
   onNavigateToNotifications
 }: { 
+  userName: string;
   onNavigateToClasses: () => void; 
   onNavigateToProfile: () => void;
   onNavigateToNotifications: () => void;
@@ -221,7 +223,7 @@ function ProfileWrapper({ onNavigateHome, onNavigateToClasses, onLogout }: { onN
 }
 
 // --- MAIN EXPORT & STATE MANAGER ---
-export function HomeScreen({ onLogout }: { onLogout: () => void }) {
+export function HomeScreen({ userName, onLogout }: { userName: string; onLogout: () => void }) {
   const [currentScreen, setCurrentScreen] = useState<"home" | "classes" | "profile" | "notifications">("home");
   
   // State baru untuk menyimpan riwayat halaman sebelum membuka notifikasi
@@ -263,6 +265,7 @@ export function HomeScreen({ onLogout }: { onLogout: () => void }) {
 
   return (
     <HomeScreenContent 
+      userName={userName}
       onNavigateToClasses={() => setCurrentScreen("classes")} 
       onNavigateToProfile={() => setCurrentScreen("profile")}
       onNavigateToNotifications={goToNotifications} // Gunakan fungsi interseptor

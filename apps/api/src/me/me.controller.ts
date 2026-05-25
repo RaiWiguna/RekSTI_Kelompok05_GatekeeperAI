@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Patch, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import {
+  cameraScanSchema,
   todayViewQuerySchema,
   updateUserAccountSchema,
+  type CameraScanInput,
   type TodayViewQueryInput,
   type UpdateUserAccountInput,
 } from "@gatekeeper/shared-validation";
@@ -46,6 +48,17 @@ export class MeController {
   @Roles("lecturer")
   async getLecturerClasses(@CurrentUser() user: AuthUser) {
     const data = await this.meService.getLecturerClasses(user);
+    return successResponse(data);
+  }
+
+  @Post("attendance/camera-scan")
+  @Roles("student")
+  async submitCameraScan(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(cameraScanSchema))
+    payload: CameraScanInput,
+  ) {
+    const data = await this.meService.submitCameraScan(user, payload);
     return successResponse(data);
   }
 

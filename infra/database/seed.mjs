@@ -11,12 +11,15 @@ const studentEmail = process.env.SEED_STUDENT_EMAIL ?? "student@gatekeeper.local
 const studentPassword = process.env.SEED_STUDENT_PASSWORD ?? "Student12345!";
 const lecturerEmail = process.env.SEED_LECTURER_EMAIL ?? "lecturer@gatekeeper.local";
 const lecturerPassword = process.env.SEED_LECTURER_PASSWORD ?? "Lecturer12345!";
+const gatewayEmail = process.env.SEED_GATEWAY_ID ?? "gw-01";
+const gatewayPassword = process.env.SEED_GATEWAY_SECRET ?? "Gateway12345!";
 
 async function main() {
-  const [adminPasswordHash, studentPasswordHash, lecturerPasswordHash] = await Promise.all([
+  const [adminPasswordHash, studentPasswordHash, lecturerPasswordHash, gatewayPasswordHash] = await Promise.all([
     argon2.hash(adminPassword),
     argon2.hash(studentPassword),
     argon2.hash(lecturerPassword),
+    argon2.hash(gatewayPassword),
   ]);
 
   const adminUser = await prisma.user.upsert({
@@ -70,6 +73,23 @@ async function main() {
     },
   });
 
+  const gatewayUser = await prisma.user.upsert({
+    where: { email: gatewayEmail },
+    update: {
+      accountName: "gw-01",
+      role: UserRole.GATEWAY,
+      status: UserStatus.ACTIVE,
+      passwordHash: gatewayPasswordHash,
+    },
+    create: {
+      email: gatewayEmail,
+      accountName: "gw-01",
+      role: UserRole.GATEWAY,
+      status: UserStatus.ACTIVE,
+      passwordHash: gatewayPasswordHash,
+    },
+  });
+
   await prisma.lecturer.upsert({
     where: { nidn: "100200300" },
     update: {
@@ -104,6 +124,7 @@ async function main() {
   console.log(`Admin: ${adminUser.email} / ${adminPassword}`);
   console.log(`Student: ${studentUser.email} / ${studentPassword}`);
   console.log(`Lecturer: ${lecturerUser.email} / ${lecturerPassword}`);
+  console.log(`Gateway: ${gatewayUser.email} / ${gatewayPassword}`);
 }
 
 main()

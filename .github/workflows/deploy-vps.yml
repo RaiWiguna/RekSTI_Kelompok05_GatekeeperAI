@@ -1,0 +1,88 @@
+name: Deploy VPS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/api/**"
+      - "infra/**"
+      - "packages/**"
+      - "services/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "tsconfig.base.json"
+      - ".github/workflows/deploy-vps.yml"
+  workflow_dispatch:
+    inputs:
+      run_seed:
+        description: "Run pnpm db:seed after deploy"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+concurrency:
+  group: deploy-vps-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy backend and infra to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PROJECT_DIR: ${{ secrets.VPS_PROJECT_DIR }}
+      SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+      DEPLOY_REF: ${{ github.ref_name }}
+      RUN_SEED: ${{ github.event.inputs.run_seed || 'false' }}
+      COMPOSE_FILE: infra/docker/docker-compose.vps.yml
+      ENV_FILE: infra/deployment/.env.vps
+    steps:
+      - name: Validate required secrets
+        run: |
+          test -n "$VPS_HOST"
+          test -n "$VPS_PORT"
+          test -n "$VPS_USER"
+          test -n "$VPS_PROJECT_DIR"
+          test -n "$SSH_PRIVATE_KEY"
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
+            "PROJECT_DIR='$VPS_PROJECT_DIR' DEPLOY_REF='$DEPLOY_REF' RUN_SEED='$RUN_SEED' COMPOSE_FILE='$COMPOSE_FILE' ENV_FILE='$ENV_FILE' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          cd "$PROJECT_DIR"
+
+          git fetch origin "$DEPLOY_REF"
+          git checkout "$DEPLOY_REF"
+          git pull --ff-only origin "$DEPLOY_REF"
+
+          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d postgres redis
+          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build api migrate
+          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" run --rm migrate
+          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d api nginx
+
+          if [ "$RUN_SEED" = "true" ]; then
+            docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" run --rm api pnpm db:seed
+          fi
+
+          docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
+          docker image prune -f
+          REMOTE

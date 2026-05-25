@@ -1,6 +1,7 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 
 import { AdminDashboard } from "./features/console/components/admin-dashboard";
 import { ConsoleSidebar } from "./features/console/components/console-sidebar";
@@ -20,11 +21,13 @@ import type {
   LecturerClassRoster,
   LecturerManagedClass,
   LecturerTodayClass,
+  ResourceItem,
   ResourceForms,
   ResourceKey,
   ResourceStore,
 } from "./features/console/types";
 import { filterResourceItems, getErrorMessage } from "./features/console/utils/display";
+import { updateResourceFormValue } from "./features/console/utils/forms";
 import {
   apiRequest,
   clearStoredAuthTokens,
@@ -104,9 +107,156 @@ export default function AdminConsole() {
     setToken(null);
     setUser(null);
     setRecords(initialStore);
+    setForms(buildInitialForms());
     setActiveTab("dashboard");
+    setMessage(null);
     setError(null);
   }
+
+  function getCurrentAccessToken() {
+    const accessToken = token ?? getStoredAuthTokens()?.accessToken;
+
+    if (!accessToken) {
+      throw new Error("Session token is missing. Please sign in again.");
+    }
+
+    return accessToken;
+  }
+
+  async function fetchResource(resource: ResourceKey, accessToken: string) {
+    const config = resourceConfigs[resource];
+    const response = await apiRequest<ResourceItem[]>(config.endpoint, {
+      accessToken,
+      query: config.query,
+      onAccessTokenRotated: setToken,
+    });
+
+    return Array.isArray(response) ? response : [];
+  }
+
+  const refreshResources = useCallback(
+    async (resources: ResourceKey[], accessToken = getCurrentAccessToken()) => {
+      const uniqueResources = Array.from(new Set(resources));
+      const entries = await Promise.all(
+        uniqueResources.map(async (resource) => [resource, await fetchResource(resource, accessToken)] as const),
+      );
+
+      setRecords((current) => {
+        const nextRecords = { ...current };
+        for (const [resource, items] of entries) {
+          nextRecords[resource] = items;
+        }
+        return nextRecords;
+      });
+    },
+    [token],
+  );
+
+  const refreshAdminResources = useCallback(
+    async (accessToken = getCurrentAccessToken()) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        await refreshResources(resourceOrder, accessToken);
+      } catch (requestError) {
+        setError(getErrorMessage(requestError, "Unable to refresh admin resources."));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [refreshResources],
+  );
+
+  async function refreshActiveResource() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await refreshResources([activeResource]);
+      setMessage(`${resourceConfigs[activeResource].title} refreshed.`);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, `Unable to refresh ${resourceConfigs[activeResource].title}.`));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setMessage(null);
+
+    const config = resourceConfigs[activeResource];
+    const formValues = forms[activeResource];
+    const payload = config.buildPayload ? config.buildPayload(formValues) : formValues;
+
+    try {
+      const accessToken = getCurrentAccessToken();
+      await apiRequest(config.endpoint, {
+        method: "POST",
+        accessToken,
+        body: payload,
+        onAccessTokenRotated: setToken,
+      });
+
+      setForms((current) => ({
+        ...current,
+        [activeResource]: buildInitialForms()[activeResource],
+      }));
+      await refreshResources([activeResource, ...(config.refreshTargets ?? [])], accessToken);
+      setMessage(`${config.singularLabel} created.`);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, `Unable to create ${config.singularLabel}.`));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!id) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    const config = resourceConfigs[activeResource];
+
+    try {
+      const accessToken = getCurrentAccessToken();
+      await apiRequest(`${config.endpoint}/${id}`, {
+        method: "DELETE",
+        accessToken,
+        onAccessTokenRotated: setToken,
+      });
+      await refreshResources([activeResource, ...(config.refreshTargets ?? [])], accessToken);
+      setMessage(`${config.singularLabel} removed.`);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, `Unable to remove ${config.singularLabel}.`));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleSelectResource(resource: ResourceKey) {
+    setActiveResource(resource);
+    setQuery("");
+    setMessage(null);
+    setError(null);
+  }
+
+  function handleFormChange(fieldName: string, value: string) {
+    updateResourceFormValue(setForms, activeResource, fieldName, value);
+  }
+
+  useEffect(() => {
+    if (user?.role === "admin" && token) {
+      void refreshAdminResources(token);
+    }
+  }, [token, user?.role, refreshAdminResources]);
 
   const navigateToNotifications = () => {
     setPreviousTab(activeTab);
@@ -237,9 +387,9 @@ export default function AdminConsole() {
           loading={loading}
           user={user}
           onLogout={handleLogout}
-          onRefreshAdmin={() => {}}
+          onRefreshAdmin={() => void refreshAdminResources()}
           onRefreshLecturer={() => {}}
-          onSelectResource={(res) => setActiveResource(res)}
+          onSelectResource={handleSelectResource}
         />
         <section className="surface">
           {user.role === "admin" ? (
@@ -253,11 +403,11 @@ export default function AdminConsole() {
               records={records}
               query={query}
               submitting={submitting}
-              onCreate={() => {}} 
-              onDelete={() => {}}
-              onFormChange={() => {}}
+              onCreate={handleCreate}
+              onDelete={handleDelete}
+              onFormChange={handleFormChange}
               onQueryChange={setQuery}
-              onRefresh={() => {}}
+              onRefresh={() => void refreshActiveResource()}
             />
           ) : null}
         </section>
